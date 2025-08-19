@@ -1,0 +1,354 @@
+/* Config Verification - Enhanced Green Theme with Professional Styling */
+.config-verification-container {
+  background: linear-gradient(135deg, #000000 0%, #0a0a0a 50%, #000000 100%);
+  color: #ffffff;
+  padding: 24px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  border-radius: 8px;
+  box-shadow: 0 0 50px rgba(0, 255, 0, 0.2), 0 0 100px rgba(0, 255, 0, 0.1), inset 0 0 50px rgba(0, 0, 0, 0.8);
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+/* Main Content Area */
+.config-verification-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.config-verification-title {
+  color: #00ff00;
+  font-weight: 700;
+  font-size: 2rem;
+  margin-bottom: 16px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.4), 0 0 40px rgba(0, 255, 0, 0.2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.config-verification-title::before {
+  content: '🔍';
+  font-size: 2.25rem;
+  color: #00ff00;
+  filter: drop-shadow(0 0 15px rgba(0, 255, 0, 0.5));
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+}
+
+.config-verification-title::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  width: 100px;
+  height: 3px;
+  background: linear-gradient(90deg, #00ff00 0%, #00cc00 50%, #00ff00 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+}
+
+/* Device Selector */
+.device-selector-verification {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(0, 255, 0, 0.4);
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  letter-spacing: 0.025em;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2300ff00' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 40px;
+  flex-shrink: 0;
+}
+
+.device-selector-verification:focus {
+  outline: none;
+  border-color: #00ff00;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.2);
+}
+
+.device-selector-verification option {
+  background: #1a1a1a;
+  color: #ffffff;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+/* Chat Messages Container */
+.chat-messages-container-verification {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  flex: 1;
+  overflow-y: auto;
+  backdrop-filter: blur(10px);
+  min-height: 0;
+}
+
+.chat-message-verification {
+  font-size: 0.875rem;
+  margin-bottom: 8px;
+}
+
+.chat-message-verification.user {
+  text-align: right;
+}
+
+.chat-message-verification.ai {
+  text-align: left;
+}
+
+.chat-bubble-verification {
+  display: inline-block;
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.chat-bubble-verification.user {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.chat-bubble-verification.ai {
+  background: rgba(0, 0, 0, 0.8);
+  color: #ffffff;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.chat-timestamp-verification {
+  font-size: 0.75rem;
+  color: #888888;
+  margin-top: 4px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+/* Input Area */
+.input-area-verification {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.input-textarea-verification {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(0, 255, 0, 0.4);
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 60px;
+  transition: all 0.3s ease-in-out;
+  letter-spacing: 0.025em;
+  margin-bottom: 16px;
+}
+
+.input-textarea-verification:focus {
+  outline: none;
+  border-color: #00ff00;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.2);
+}
+
+.input-textarea-verification::placeholder {
+  color: #888888;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+/* Button Group */
+.button-group-verification {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.btn-send-verification {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: 600;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3);
+}
+
+.btn-send-verification:hover {
+  background: linear-gradient(135deg, #00cc00 0%, #009900 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4);
+}
+
+.btn-send-verification:active {
+  transform: translateY(0);
+}
+
+.btn-voice-verification {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: 600;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3);
+}
+
+.btn-voice-verification:hover {
+  background: linear-gradient(135deg, #00cc00 0%, #009900 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4);
+}
+
+.btn-voice-verification:active {
+  transform: translateY(0);
+}
+
+.btn-voice-verification.listening {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+}
+
+.btn-voice-verification.listening:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+/* Status Message */
+.status-message-verification {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.status-message-verification.success {
+  background: rgba(0, 255, 0, 0.1);
+  color: #00ff00;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.status-message-verification.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .config-verification-container {
+    height: auto;
+    min-height: calc(100vh - 120px);
+    overflow: visible;
+  }
+  
+  .config-verification-content {
+    padding: 12px;
+    height: auto;
+    overflow: visible;
+  }
+  
+  .config-verification-title {
+    font-size: 1.5rem;
+  }
+  
+  .button-group-verification {
+    justify-content: center;
+  }
+  
+  .btn-send-verification,
+  .btn-voice-verification {
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .chat-messages-container-verification {
+    height: 400px;
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .config-verification-container {
+    padding: 16px;
+    height: auto;
+    min-height: calc(100vh - 80px);
+  }
+  
+  .config-verification-content {
+    padding: 12px;
+  }
+  
+  .config-verification-title {
+    font-size: 1.25rem;
+  }
+  
+  .button-group-verification {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .btn-send-verification,
+  .btn-voice-verification {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .chat-messages-container-verification {
+    height: 300px;
+    min-height: 300px;
+  }
+} 

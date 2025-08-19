@@ -1,0 +1,718 @@
+/* Team Management - Enhanced Green Theme with Professional Styling */
+.team-management-container {
+  background: linear-gradient(135deg, #000000 0%, #0a0a0a 50%, #000000 100%);
+  color: #ffffff;
+  padding: 24px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  border-radius: 8px;
+  box-shadow: 0 0 50px rgba(0, 255, 0, 0.2), 0 0 100px rgba(0, 255, 0, 0.1), inset 0 0 50px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 120px);
+}
+
+/* Header Section */
+.team-management-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-shrink: 0;
+}
+
+.team-management-title {
+  color: #00ff00;
+  font-weight: 700;
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  letter-spacing: -0.02em;
+  position: relative;
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.4), 0 0 40px rgba(0, 255, 0, 0.2);
+}
+
+.team-management-title::before {
+  content: '👥';
+  font-size: 2.25rem;
+  color: #00ff00;
+  filter: drop-shadow(0 0 15px rgba(0, 255, 0, 0.5));
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+}
+
+.team-management-title::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  width: 100px;
+  height: 3px;
+  background: linear-gradient(90deg, #00ff00 0%, #00cc00 50%, #00ff00 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+}
+
+/* Add Member Button */
+.btn-add-member {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: 600;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3);
+}
+
+.btn-add-member:hover {
+  background: linear-gradient(135deg, #00cc00 0%, #009900 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4);
+}
+
+.btn-add-member:active {
+  transform: translateY(0);
+}
+
+/* Table Container */
+.team-management-table-container {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Table */
+.team-management-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.team-management-table thead {
+  background: rgba(0, 255, 0, 0.1);
+}
+
+.team-management-table th {
+  color: #00ff00;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 16px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  position: relative;
+}
+
+.team-management-table th::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.3), transparent);
+}
+
+.team-management-table tbody {
+  background: rgba(0, 0, 0, 0.2);
+  max-height: calc(100vh - 500px);
+  overflow-y: auto;
+  min-height: 200px;
+}
+
+.team-management-table tbody tr {
+  transition: all 0.3s ease-in-out;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+}
+
+.team-management-table tbody tr:hover {
+  background: rgba(0, 255, 0, 0.05);
+  transform: translateX(4px);
+}
+
+.team-management-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.team-management-table td {
+  padding: 16px 12px;
+  color: #e5e7eb;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  vertical-align: middle;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+}
+
+/* User Avatar */
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.125rem;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Role Badges */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+.role-badge.engineer {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.role-badge.viewer {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.role-badge.company_admin {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.role-badge.full_control {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.role-badge.default {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}
+
+/* Tier Badges */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+.tier-badge.tier-1 {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.tier-badge.tier-2 {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.tier-badge.tier-3 {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* Access Badges */
+.access-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  margin: 1px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+.access-badge.organization {
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  color: #dbeafe;
+  box-shadow: 0 1px 4px rgba(30, 64, 175, 0.3);
+}
+
+.access-badge.network {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #d1fae5;
+  box-shadow: 0 1px 4px rgba(5, 150, 105, 0.3);
+}
+
+.access-badge.feature {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: #e9d5ff;
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.3);
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-edit {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+}
+
+.btn-edit:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.btn-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.btn-delete:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Empty States */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  color: #9ca3af;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state-text {
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.empty-state-subtext {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+/* Modal Styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+}
+
+/* Delete Confirmation Modal */
+.delete-confirmation-modal {
+  max-width: 30rem !important;
+  width: 90% !important;
+  padding: 36px !important;
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  border: 2px solid rgba(0, 255, 0, 0.3);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 0 50px rgba(0, 255, 0, 0.2), 0 0 100px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(20px);
+}
+
+.modal-title {
+  color: #00ff00;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+  text-align: center;
+}
+
+/* Form Elements */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  color: #e5e7eb;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(0, 255, 0, 0.4);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: 400;
+  transition: all 0.3s ease-in-out;
+  letter-spacing: 0.025em;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #00ff00;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.2);
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
+}
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(0, 255, 0, 0.4);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  letter-spacing: 0.025em;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2300ff00' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #00ff00;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.2);
+}
+
+.form-select option {
+  background: #1a1a1a;
+  color: #ffffff;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+/* Access Selection Containers */
+.access-container {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(0, 255, 0, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.access-section {
+  margin-bottom: 20px;
+}
+
+.access-section-title {
+  color: #00ff00;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 12px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.access-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  min-height: 40px;
+}
+
+.access-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+.access-tag.organization {
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  color: #dbeafe;
+  box-shadow: 0 2px 6px rgba(30, 64, 175, 0.3);
+}
+
+.access-tag.network {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #d1fae5;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);
+}
+
+.access-tag-remove {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #ffffff;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease-in-out;
+  font-size: 10px;
+}
+
+.access-tag-remove:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* Feature Checkboxes */
+.feature-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feature-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  transition: all 0.3s ease-in-out;
+}
+
+.feature-checkbox:hover {
+  background: rgba(0, 255, 0, 0.05);
+  border-color: rgba(0, 255, 0, 0.4);
+}
+
+.feature-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #00ff00;
+  cursor: pointer;
+}
+
+.feature-checkbox span {
+  color: #e5e7eb;
+  font-weight: 500;
+  font-size: 14px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+/* Modal Actions */
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(0, 255, 0, 0.2);
+}
+
+.btn-modal-cancel {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: #ffffff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease-in-out;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+.btn-modal-cancel:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  transform: translateY(-1px);
+}
+
+.btn-modal-save {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease-in-out;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3);
+}
+
+.btn-modal-save:hover {
+  background: linear-gradient(135deg, #00cc00 0%, #009900 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .team-management-title {
+    font-size: 2rem;
+  }
+  
+  .team-management-table th,
+  .team-management-table td {
+    padding: 14px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .team-management-container {
+    padding: 16px;
+  }
+  
+  .team-management-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  
+  .team-management-title {
+    font-size: 1.75rem;
+  }
+  
+  .btn-add-member {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .team-management-table th,
+  .team-management-table td {
+    padding: 12px 8px;
+    font-size: 0.75rem;
+  }
+  
+  .team-management-table tbody td {
+    padding-left: 120px;
+  }
+  
+  .team-management-table tbody td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 8px;
+    width: 110px;
+    font-weight: 600;
+    color: #00ff00;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .team-management-container {
+    padding: 12px;
+  }
+  
+  .team-management-title {
+    font-size: 1.5rem;
+  }
+  
+  .team-management-table th,
+  .team-management-table td {
+    padding: 10px 6px;
+    font-size: 0.7rem;
+  }
+  
+  .btn-add-member {
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+} 

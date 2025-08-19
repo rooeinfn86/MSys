@@ -1,0 +1,79 @@
+{
+  "name": "cisco-config-ui",
+  "version": "0.1.0",
+  "private": true,
+  "homepage": "",
+  "proxy": "http://127.0.0.1:8000",
+  "dependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "@emotion/react": "^11.11.3",
+    "@emotion/styled": "^11.11.0",
+    "@fontsource/inter": "^5.0.16",
+    "@mui/icons-material": "^5.15.10",
+    "@mui/material": "^5.15.10",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "ajv": "^8.12.0",
+    "ajv-keywords": "^5.1.0",
+    "antd": "^5.24.8",
+    "axios": "^1.9.0",
+    "bootstrap": "^5.3.3",
+    "cytoscape": "^3.32.0",
+    "cytoscape-cose-bilkent": "^4.1.0",
+    "cytoscape-dagre": "^2.5.0",
+    "date-fns": "^3.6.0",
+    "date-fns-tz": "^3.2.0",
+    "jwt-decode": "^4.0.0",
+    "lucide-react": "^0.334.0",
+    "react": "^18.2.0",
+    "react-cytoscapejs": "^2.0.0",
+    "react-dom": "^18.2.0",
+    "react-dropzone": "^14.3.8",
+    "react-router-dom": "^6.22.1",
+    "react-scripts": "5.0.1",
+    "react-speech-recognition": "^3.10.0",
+    "recharts": "^2.12.0",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "assert": "^2.1.0",
+    "autoprefixer": "^10.4.17",
+    "browserify-zlib": "^0.2.0",
+    "eslint": "^8.56.0",
+    "eslint-config-react-app": "^7.0.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-jsx-a11y": "^6.8.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "https-browserify": "^1.0.0",
+    "postcss": "^8.4.35",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "tailwindcss": "^3.4.1",
+    "url": "^0.11.4",
+    "util": "^0.12.5"
+  }
+}

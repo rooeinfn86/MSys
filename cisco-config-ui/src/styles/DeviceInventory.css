@@ -1,0 +1,1633 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap');
+
+/* Global font override for Device Inventory */
+.device-inventory-container,
+.device-inventory-container * {
+  font-family: "Courier New", "Courier", monospace !important;
+}
+
+/* Device Inventory - Enhanced Green Theme with Professional Styling */
+.device-inventory-container {
+  background: linear-gradient(135deg, #000000 0%, #0a0a0a 50%, #000000 100%);
+  color: #ffffff;
+  padding: 24px;
+  font-family: "Courier New", "Courier", monospace;
+  border-radius: 8px;
+  box-shadow: 0 0 50px rgba(0, 255, 0, 0.2), 0 0 100px rgba(0, 255, 0, 0.1), inset 0 0 50px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 120px);
+}
+
+/* Background Monitoring Status Bar */
+.background-monitoring-status {
+  background: linear-gradient(135deg, rgba(0, 255, 0, 0.1) 0%, rgba(0, 204, 0, 0.05) 100%);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  font-family: "Courier New", "Courier", monospace;
+  box-shadow: 0 2px 10px rgba(0, 255, 0, 0.1);
+}
+
+.background-monitoring-status .status-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.background-monitoring-status .status-label {
+  color: #00ff00;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.background-monitoring-status .status-indicator {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.background-monitoring-status .status-indicator.active {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  box-shadow: 0 2px 8px rgba(0, 255, 0, 0.4);
+}
+
+.background-monitoring-status .status-indicator.idle {
+  background: linear-gradient(135deg, #333333 0%, #444444 100%);
+  color: #00ff00;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.background-monitoring-status .status-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: #cccccc;
+}
+
+.background-monitoring-status .status-details span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.background-monitoring-status .last-checked::before {
+  content: '⏰';
+  color: #00ff00;
+}
+
+.background-monitoring-status .next-check::before {
+  content: '⏭️';
+  color: #00ff00;
+}
+
+.background-monitoring-status .interval-info::before {
+  content: '🔄';
+  color: #00ff00;
+}
+
+/* Header Section */
+.device-inventory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-shrink: 0;
+}
+
+.device-inventory-title {
+  color: #00ff00;
+  font-weight: 700;
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-family: "Courier New", "Courier", monospace;
+  letter-spacing: -0.02em;
+  position: relative;
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.4), 0 0 40px rgba(0, 255, 0, 0.2);
+}
+
+.device-inventory-title::before {
+  content: '📱';
+  font-size: 2.25rem;
+  color: #00ff00;
+  filter: drop-shadow(0 0 15px rgba(0, 255, 0, 0.5));
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+}
+
+.device-inventory-title::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  width: 100px;
+  height: 3px;
+  background: linear-gradient(90deg, #00ff00 0%, #00cc00 50%, #00ff00 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+}
+
+/* Action Buttons */
+.device-inventory-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-auto-discovery {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 600;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3);
+}
+
+.btn-auto-discovery:hover {
+  background: linear-gradient(135deg, #00cc00 0%, #009900 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4);
+}
+
+.btn-auto-discovery:active {
+  transform: translateY(0);
+}
+
+.btn-add-device {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 600;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3);
+}
+
+.btn-add-device:hover {
+  background: linear-gradient(135deg, #00cc00 0%, #009900 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4);
+}
+
+.btn-add-device:active {
+  transform: translateY(0);
+}
+
+/* Table Container */
+.device-inventory-table-container {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 8px;
+  overflow: auto;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Allow container to shrink */
+}
+
+/* Table */
+.device-inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  table-layout: fixed;
+  min-width: 1200px; /* Ensure minimum width for all columns */
+}
+
+/* Ensure Actions column has enough space */
+.device-inventory-table th:last-child,
+.device-inventory-table td:last-child {
+  min-width: 200px;
+  width: 200px;
+}
+
+.device-inventory-table thead {
+  background: rgba(0, 255, 0, 0.1);
+}
+
+.device-inventory-table th {
+  color: #00ff00;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 16px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+  font-family: "Courier New", "Courier", monospace;
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Set specific column widths */
+.device-inventory-table th:nth-child(1) { width: 10%; } /* Status */
+.device-inventory-table th:nth-child(2) { width: 12%; } /* Name */
+.device-inventory-table th:nth-child(3) { width: 12%; } /* IP Address */
+.device-inventory-table th:nth-child(4) { width: 10%; } /* Location */
+.device-inventory-table th:nth-child(5) { width: 8%; }  /* Type */
+.device-inventory-table th:nth-child(6) { width: 12%; } /* OS Version */
+.device-inventory-table th:nth-child(7) { width: 12%; } /* Serial Number */
+.device-inventory-table th:nth-child(8) { width: 8%; }  /* Discovery */
+.device-inventory-table th:nth-child(9) { width: 8%; }  /* Service */
+.device-inventory-table th:nth-child(10) { width: 10%; } /* Actions */
+
+.device-inventory-table th::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.3), transparent);
+}
+
+.device-inventory-table tbody {
+  background: rgba(0, 0, 0, 0.2);
+  max-height: calc(100vh - 500px);
+  overflow-y: auto;
+  min-height: 200px;
+}
+
+.device-inventory-table tbody tr {
+  transition: all 0.3s ease-in-out;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+}
+
+.device-inventory-table tbody tr:hover {
+  background: rgba(0, 255, 0, 0.05);
+  transform: translateX(4px);
+}
+
+.device-inventory-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.device-inventory-table td {
+  padding: 16px 12px;
+  color: #e5e7eb;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  vertical-align: middle;
+  font-family: "Courier New", "Courier", monospace;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status Indicators - Enhanced */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: "Courier New", "Courier", monospace;
+  position: relative;
+  overflow: hidden;
+}
+
+.status-indicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.status-indicator:hover::before {
+  opacity: 1;
+}
+
+.status-green {
+  background: rgba(0, 255, 0, 0.1);
+  color: #00ff00;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.status-orange {
+  background: rgba(255, 152, 0, 0.1);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.status-red {
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.status-dot.green { background-color: #00ff00; }
+.status-dot.orange { background-color: #ff9800; }
+.status-dot.red { background-color: #f44336; }
+
+/* Discovery Badges - Enhanced */
+.discovery-badge {
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: "Courier New", "Courier", monospace;
+  position: relative;
+  overflow: hidden;
+}
+
+.discovery-badge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.discovery-badge:hover::before {
+  opacity: 1;
+}
+
+.discovery-auto {
+  background: rgba(156, 39, 176, 0.2);
+  color: #ba68c8;
+  border: 1px solid rgba(156, 39, 176, 0.4);
+}
+
+.discovery-manual {
+  background: rgba(33, 150, 243, 0.2);
+  color: #64b5f6;
+  border: 1px solid rgba(33, 150, 243, 0.4);
+}
+
+/* Service Toggle - Enhanced */
+.service-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  font-family: "Courier New", "Courier", monospace;
+  position: relative;
+  overflow: hidden;
+}
+
+.service-toggle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.service-toggle:hover::before {
+  opacity: 1;
+}
+
+.service-active {
+  background: rgba(0, 255, 0, 0.1);
+  color: #00ff00;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.service-active:hover {
+  background: rgba(0, 255, 0, 0.2);
+}
+
+.service-inactive {
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.service-inactive:hover {
+  background: rgba(244, 67, 54, 0.2);
+}
+
+/* Professional Action Button Styles */
+.action-button {
+  color: #ffffff;
+  background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  min-width: 80px;
+  justify-content: center;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.action-button:hover::before {
+  left: 100%;
+}
+
+.action-button:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+  border-color: rgba(107, 114, 128, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.action-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.action-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.2);
+}
+
+/* Specific button styles */
+.action-button.refresh-button {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #ffffff;
+}
+
+.action-button.refresh-button:hover {
+  background: linear-gradient(135deg, #047857 0%, #059669 100%);
+  border-color: rgba(5, 150, 105, 0.5);
+}
+
+.action-button.edit-button {
+  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #ffffff;
+}
+
+.action-button.edit-button:hover {
+  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
+  border-color: rgba(124, 58, 237, 0.5);
+}
+
+.action-button.delete-button {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ffffff;
+}
+
+.action-button.delete-button:hover {
+  background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+/* Disabled state for refresh button */
+.action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.action-button:disabled:hover {
+  background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+  border-color: rgba(75, 85, 99, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transform: none;
+}
+
+/* Actions column specific styling */
+.device-inventory-table td[data-label="Actions"] {
+  text-align: center;
+  padding: 12px 8px;
+  white-space: nowrap;
+}
+
+.device-inventory-table td[data-label="Actions"] .flex {
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  align-items: center;
+  min-height: 32px;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+/* Ensure action buttons don't overflow the Actions column */
+.device-inventory-table td[data-label="Actions"] .action-button {
+  flex-shrink: 0;
+  margin: 1px;
+  min-width: 65px;
+  max-width: 75px;
+  height: 32px;
+  box-sizing: border-box;
+  display: inline-flex;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+/* Button text and icon alignment */
+.device-inventory-table td[data-label="Actions"] .action-button svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.device-inventory-table td[data-label="Actions"] .action-button span {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+/* Responsive adjustments for Actions column */
+@media (max-width: 768px) {
+  .device-inventory-table td[data-label="Actions"] {
+    min-width: auto;
+    padding-left: 120px;
+  }
+  
+  .device-inventory-table td[data-label="Actions"] .flex {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  
+  .device-inventory-table td[data-label="Actions"] .action-button {
+    min-width: 70px;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+  border: 2px solid rgba(0, 255, 0, 0.4);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 85vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 50px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-title {
+  color: #00ff00;
+  font-size: 1.75rem;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 700;
+  margin-bottom: 28px;
+  text-align: center;
+  letter-spacing: -0.025em;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.modal-section {
+  margin-bottom: 28px;
+}
+
+.modal-section-title {
+  color: #00ff00;
+  font-size: 1.125rem;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 600;
+  margin-bottom: 16px;
+  border-bottom: 2px solid rgba(0, 255, 0, 0.4);
+  padding-bottom: 10px;
+  letter-spacing: 0.025em;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Enhanced form styling */
+.form-input:hover,
+.form-select:hover {
+  border-color: rgba(0, 255, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Better spacing for form sections */
+.modal-section .form-group + .form-group {
+  margin-top: 16px;
+}
+
+/* Professional form validation styling */
+.form-input.error,
+.form-select.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.form-input.error:focus,
+.form-select.error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.form-input.success,
+.form-select.success {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.form-input.success:focus,
+.form-select.success:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+/* Button Styles */
+.btn-primary {
+  background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+  color: #000000;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 600;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 255, 0, 0.3);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #00cc00 0%, #009900 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.3);
+}
+
+.btn-primary:disabled {
+  background: #9ca3af;
+  color: #6b7280;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: #ffffff;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 600;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  box-shadow: 0 4px 16px rgba(107, 114, 128, 0.3);
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.3);
+}
+
+.form-label {
+  display: block;
+  color: #ffffff;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 14px;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(0, 255, 0, 0.4);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 400;
+  transition: all 0.3s ease-in-out;
+  letter-spacing: 0.025em;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #00ff00;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.2);
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
+}
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(0, 255, 0, 0.4);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: "Courier New", "Courier", monospace;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  letter-spacing: 0.025em;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2300ff00' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #00ff00;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.2);
+}
+
+.form-select option {
+  background: #1a1a1a;
+  color: #ffffff;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+/* SNMP Configuration */
+.snmp-section {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(0, 255, 0, 0.3);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 40px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.snmp-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Add Device Modal - Enhanced Section Spacing */
+.add-device-modal .snmp-section {
+  margin-bottom: 40px;
+  border: 2px solid rgba(16, 185, 129, 0.4);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.add-device-modal .snmp-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Add Device Modal - Form Grid Spacing */
+.add-device-modal .grid.grid-cols-1.md\:grid-cols-3 {
+  margin-bottom: 32px;
+  gap: 20px;
+}
+
+.add-device-modal .grid.grid-cols-1.md\:grid-cols-3 > * {
+  margin-bottom: 0;
+}
+
+.snmp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.snmp-field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* SNMP v3 specific styling */
+.snmp-v3-section {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 16px;
+}
+
+/* SNMP v3 fields container */
+.snmp-v3-fields {
+  margin-top: 20px;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  border-radius: 8px;
+}
+
+/* Add Device Modal - SNMP v3 Fields */
+.add-device-modal .snmp-v3-fields {
+  margin-top: 24px;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 8px;
+}
+
+.snmp-v3-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.snmp-v3-field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* SSH Configuration */
+.ssh-section {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(0, 255, 0, 0.3);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 40px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.ssh-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Add Device Modal - SSH Section */
+.add-device-modal .ssh-section {
+  margin-bottom: 40px;
+  border: 2px solid rgba(16, 185, 129, 0.4);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Protocol selection styling */
+.protocol-selection {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.protocol-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+.protocol-option:hover {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(0, 255, 0, 0.4);
+}
+
+.protocol-option.selected {
+  background: rgba(0, 255, 0, 0.1);
+  border-color: #00ff00;
+  color: #00ff00;
+}
+
+/* Agent Selection */
+.agent-selection-container {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(0, 255, 0, 0.3);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.agent-item {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.agent-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 255, 0, 0.05) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.agent-item:hover::before {
+  opacity: 1;
+}
+
+.agent-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 255, 0, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 255, 0, 0.2);
+}
+
+.agent-item.selected {
+  background: rgba(0, 255, 0, 0.1);
+  border-color: #00ff00;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+.agent-status {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00ff00;
+  box-shadow: 0 0 8px #00ff00;
+  flex-shrink: 0;
+}
+
+.agent-status.offline {
+  background: #ff0000;
+  box-shadow: 0 0 8px #ff0000;
+}
+
+.agent-info {
+  flex: 1;
+}
+
+.agent-name {
+  color: #ffffff;
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 0.875rem;
+  font-family: "Courier New", "Courier", monospace;
+}
+
+.agent-details {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  font-family: "Courier New", "Courier", monospace;
+}
+
+.agent-selection-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.selection-counter {
+  color: #00ff00;
+  font-weight: 600;
+  margin-left: auto;
+  font-size: 0.875rem;
+  font-family: "Courier New", "Courier", monospace;
+}
+
+/* Custom Tooltip */
+.custom-tooltip {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.9);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 999999;
+  pointer-events: none;
+  max-width: 200px;
+  text-align: center;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.2s ease;
+  font-family: "Courier New", "Courier", monospace;
+}
+
+/* Add Device Modal Specific Styles */
+.add-device-modal .modal-content {
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+  border: 2px solid rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 50px rgba(16, 185, 129, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5);
+  width: 80vw !important;
+  max-width: 80vw !important;
+  height: auto !important;
+  max-height: 80vh !important;
+  overflow: visible !important;
+  padding: 24px !important;
+}
+
+.add-device-modal .modal-content > * + * {
+  margin-top: 24px;
+}
+
+.add-device-modal .modal-title {
+  color: #00ff00;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.add-device-modal .modal-section-title {
+  color: #10b981;
+  border-bottom-color: rgba(16, 185, 129, 0.4);
+}
+
+.add-device-modal .form-input,
+.add-device-modal .form-select {
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.add-device-modal .form-input:focus,
+.add-device-modal .form-select:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.add-device-modal .form-input:hover,
+.add-device-modal .form-select:hover {
+  border-color: rgba(16, 185, 129, 0.6);
+}
+
+.add-device-modal .snmp-section,
+.add-device-modal .ssh-section,
+.add-device-modal .agent-selection-container {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.add-device-modal .snmp-v3-section {
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.add-device-modal .protocol-option {
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #ffffff;
+}
+
+.add-device-modal .protocol-option:hover {
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.add-device-modal .protocol-option.selected {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.add-device-modal .agent-selection-container {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.add-device-modal .agent-item:hover {
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.add-device-modal .agent-item.selected {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+}
+
+/* Agent selection visual feedback */
+.agent-item input[type="checkbox"]:checked + .agent-status + .agent-info {
+  color: #10b981;
+}
+
+.agent-item input[type="checkbox"]:checked ~ .agent-status {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+}
+
+.agent-item input[type="checkbox"]:checked ~ .agent-info .agent-name {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.add-device-modal .snmp-v3-fields {
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+/* Delete Confirmation Modal Styling */
+.delete-confirmation-modal .modal-content {
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 50px rgba(239, 68, 68, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.delete-confirmation-modal .modal-title {
+  color: #ef4444;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+
+.delete-confirmation-modal .btn-secondary {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: #ffffff;
+  border-color: rgba(107, 114, 128, 0.3);
+}
+
+.delete-confirmation-modal .btn-secondary:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+}
+
+.custom-tooltip.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.custom-tooltip.status-green {
+  border-color: #10b981;
+}
+
+.custom-tooltip.status-orange {
+  border-color: #f59e0b;
+}
+
+.custom-tooltip.status-red {
+  border-color: #ef4444;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+  .device-inventory-container {
+    padding: 20px;
+  }
+  
+  .device-inventory-title {
+    font-size: 2rem;
+  }
+  
+  .device-inventory-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .device-inventory-actions {
+    justify-content: center;
+  }
+  
+  .device-inventory-table th,
+  .device-inventory-table td {
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+  
+  /* Adjust column widths for smaller screens */
+  .device-inventory-table th:nth-child(1) { width: 10%; } /* Status */
+  .device-inventory-table th:nth-child(2) { width: 12%; } /* Name */
+  .device-inventory-table th:nth-child(3) { width: 12%; } /* IP Address */
+  .device-inventory-table th:nth-child(4) { width: 10%; } /* Location */
+  .device-inventory-table th:nth-child(5) { width: 8%; }  /* Type */
+  .device-inventory-table th:nth-child(6) { width: 12%; } /* OS Version */
+  .device-inventory-table th:nth-child(7) { width: 12%; } /* Serial Number */
+  .device-inventory-table th:nth-child(8) { width: 8%; }  /* Discovery */
+  .device-inventory-table th:nth-child(9) { width: 8%; }  /* Service */
+  .device-inventory-table th:nth-child(10) { width: 10%; } /* Actions */
+  
+  /* Ensure Actions column maintains width */
+  .device-inventory-table th:last-child,
+  .device-inventory-table td:last-child {
+    min-width: 180px;
+    width: 180px;
+  }
+}
+
+/* Status Circle Styles */
+.status-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.status-circle.green {
+  background-color: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.status-circle.red {
+  background-color: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.status-circle.orange {
+  background-color: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+@media (max-width: 768px) {
+  .device-inventory-container {
+    padding: 16px;
+    min-height: calc(100vh - 80px);
+  }
+  
+  .device-inventory-title {
+    font-size: 1.5rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .device-inventory-title::after {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .device-inventory-header {
+    gap: 12px;
+  }
+  
+  .device-inventory-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .btn-auto-discovery,
+  .btn-add-device {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .device-inventory-table-container {
+    padding: 16px;
+    margin-top: 16px;
+  }
+  
+  .device-inventory-table {
+    font-size: 12px;
+    table-layout: auto; /* Allow flexible layout on mobile */
+  }
+  
+  .device-inventory-table th,
+  .device-inventory-table td {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  
+  .device-inventory-table thead {
+    display: none;
+  }
+  
+  .device-inventory-table tbody tr {
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid rgba(0, 255, 0, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.4);
+  }
+  
+  .device-inventory-table tbody td {
+    display: block;
+    text-align: left;
+    border: none;
+    padding: 8px 0;
+    position: relative;
+    padding-left: 120px;
+    white-space: normal;
+  }
+  
+  .device-inventory-table tbody td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    width: 110px;
+    font-weight: 600;
+    color: #00ff00;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+  
+  .device-inventory-table tbody {
+    max-height: none;
+    overflow-y: visible;
+  }
+  
+  .device-inventory-table tbody tr:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 255, 0, 0.1);
+  }
+  
+  /* Mobile-specific Actions column styling */
+  .device-inventory-table tbody td[data-label="Actions"] {
+    padding-left: 120px;
+    text-align: left;
+  }
+  
+  .device-inventory-table tbody td[data-label="Actions"] .flex {
+    justify-content: flex-start;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .device-inventory-table tbody td[data-label="Actions"] .action-button {
+    min-width: 70px;
+    font-size: 12px;
+    padding: 6px 10px;
+    flex: 0 0 auto;
+  }
+  
+  .device-actions {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  
+  .btn-refresh,
+  .btn-edit,
+  .btn-delete {
+    width: 100%;
+    justify-content: center;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+  
+  .status-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-block;
+    position: relative;
+  }
+  
+  .status-circle.green {
+    background-color: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  }
+  
+  .status-circle.red {
+    background-color: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  }
+  
+  .status-circle.orange {
+    background-color: #f59e0b;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  }
+  
+  .discovery-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+  
+  .service-toggle {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .device-inventory-container {
+    padding: 12px;
+  }
+  
+  .device-inventory-title {
+    font-size: 1.25rem;
+  }
+  
+  .device-inventory-table-container {
+    padding: 12px;
+  }
+  
+  .device-inventory-table tbody td {
+    padding-left: 100px;
+  }
+  
+  .device-inventory-table tbody td::before {
+    width: 90px;
+    font-size: 10px;
+  }
+  
+  .btn-auto-discovery,
+  .btn-add-device {
+    font-size: 12px;
+    padding: 10px 16px;
+  }
+  
+  .device-inventory-actions {
+    gap: 6px;
+  }
+}
+
+/* Ensure proper scrolling only when needed */
+.device-inventory-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.device-inventory-table-container {
+  overflow: auto;
+  position: relative;
+}
+
+.device-inventory-table {
+  overflow: visible;
+}
+
+.device-inventory-table tbody {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Ensure Actions column stays properly aligned during horizontal scroll */
+.device-inventory-table-container::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.device-inventory-table-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.device-inventory-table-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 0, 0.3);
+  border-radius: 4px;
+}
+
+.device-inventory-table-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 0, 0.5);
+}
+
+/* Ensure table header stays fixed during scroll */
+.device-inventory-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(0, 255, 0, 0.1);
+  backdrop-filter: blur(10px);
+} 

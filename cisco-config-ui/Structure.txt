@@ -1,0 +1,21 @@
+src/
+├── components/
+│   ├── DeviceManager/
+│   │   ├── index.js                 # Main DeviceManager component
+│   │   ├── DeviceTable.js           # Device inventory table
+│   │   ├── DeviceActions.js         # Action buttons (Auto Discovery, etc.)
+│   │   └── DeviceStatus.js          # Status indicators
+│   ├── Modals/
+│   │   ├── AutoDiscoveryModal.js    # Auto Discovery modal
+│   │   ├── DeleteConfirmModal.js    # Delete confirmation
+│   │   └── ErrorModal.js            # Error display
+│   └── Common/
+│       ├── StatusCircle.js          # Reusable status component
+│       └── Tooltip.js               # Custom tooltip hook
+├── hooks/
+│   ├── useDevices.js                # Device data management
+│   ├── useDiscovery.js              # Discovery logic
+│   └── useTooltip.js                # Tooltip functionality
+└── utils/
+    ├── deviceHelpers.js             # Helper functions
+    └── discoveryHelpers.js          # Discovery calculations
