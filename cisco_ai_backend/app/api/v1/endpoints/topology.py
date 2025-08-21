@@ -769,7 +769,7 @@ async def refresh_device_info(
         # Get agents that have access to this network
         available_agents = db.query(Agent).join(AgentNetworkAccess).filter(
             AgentNetworkAccess.network_id == network_id,
-            Agent.is_active == True
+            Agent.status == "online"
         ).all()
         
         if not available_agents:

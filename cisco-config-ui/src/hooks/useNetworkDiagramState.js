@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import useTopologyState from './useTopologyState';
 import useModalState from './useModalState';
 import { useTopologyVisualization } from './useTopologyVisualization';
-import useAnimationState from './useAnimationState';
 import { useContainerSize } from './useContainerSize';
 
 /**
@@ -20,7 +19,6 @@ const useNetworkDiagramState = (networkId) => {
   const topologyState = useTopologyState(networkId);
   const modalState = useModalState(networkId);
   const visualizationState = useTopologyVisualization();
-  const animationState = useAnimationState();
   const containerSizeState = useContainerSize();
 
   // Consolidated refresh function
@@ -44,14 +42,13 @@ const useNetworkDiagramState = (networkId) => {
     topologyState.resetTopology();
     modalState.resetModalStates();
     visualizationState.resetVisualizationState();
-    animationState.resetAnimationState();
     
     // Clear any ongoing operations
     if (topologyState.refreshing) {
       // Cancel any ongoing refresh
       topologyState.setRefreshing(false);
     }
-  }, [topologyState, modalState, visualizationState, animationState]);
+  }, [topologyState, modalState, visualizationState]);
 
   // Consolidated initialization
   const initialize = useCallback(async () => {
@@ -59,16 +56,13 @@ const useNetworkDiagramState = (networkId) => {
       // Initialize topology
       await topologyState.fetchTopology();
       
-      // Initialize animation
-      animationState.initializeAnimation();
-      
       // Initialize container size tracking
       containerSizeState.updateSize();
       
     } catch (error) {
       handleError(error, 'initialization');
     }
-  }, [topologyState, animationState, containerSizeState, handleError]);
+  }, [topologyState, containerSizeState, handleError]);
 
   // Get consolidated state summary
   const getStateSummary = useCallback(() => {
@@ -92,18 +86,12 @@ const useNetworkDiagramState = (networkId) => {
         selectedNodes: visualizationState.selectedNodes.length,
         selectedEdges: visualizationState.selectedEdges.length
       },
-      animation: {
-        isAnimating: animationState.isAnimating,
-        enabled: animationState.animationEnabled,
-        speed: animationState.animationSpeed,
-        quality: animationState.animationQuality
-      },
       container: {
         width: containerSizeState.containerSize.width,
         height: containerSizeState.containerSize.height
       }
     };
-  }, [topologyState, modalState, visualizationState, animationState, containerSizeState]);
+  }, [topologyState, modalState, visualizationState, containerSizeState]);
 
   // Export all state for debugging - SIMPLIFIED TO PREVENT INFINITE LOOP
   const exportState = useCallback(() => {
@@ -127,7 +115,6 @@ const useNetworkDiagramState = (networkId) => {
     topology: topologyState,
     modals: modalState,
     visualization: visualizationState,
-    animation: animationState,
     container: containerSizeState,
     
     // Direct state access for components that need it
@@ -147,10 +134,6 @@ const useNetworkDiagramState = (networkId) => {
     layout: visualizationState.layout,
     style: visualizationState.style,
     getCytoscapeEventHandlers: visualizationState.getCytoscapeEventHandlers,
-    
-    // Animation states
-    canvasRef: animationState.canvasRef,
-    getCanvasStyle: animationState.getCanvasStyle,
     
     // Container states
     containerRef: containerSizeState.containerRef,

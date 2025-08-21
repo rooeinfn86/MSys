@@ -20,7 +20,10 @@ from .base import (
     UserOrganizationAccess,
     UserNetworkAccess,
     UserFeatureAccess,
-    DeviceLog
+    DeviceLog,
+    Agent,
+    AgentNetworkAccess,
+    AgentTokenAuditLog
 )
 
 from .compliance import (
@@ -60,6 +63,9 @@ __all__ = [
     'UserFeatureAccess',
     'DeviceLog',
     'LogType',
+    'Agent',
+    'AgentNetworkAccess',
+    'AgentTokenAuditLog',
     'ComplianceScan',
     'ComplianceFinding',
     'ComplianceFile',
