@@ -3250,6 +3250,19 @@ async def get_pending_discovery_requests(
         logger.info(f"🔍 DEBUG: Agent {agent_id} checking for pending discovery requests")
         logger.info(f"🔍 DEBUG: Available pending requests: {list(pending_discovery_requests.keys())}")
         
+        # Check for device refresh requests (new format)
+        for session_id, request_data in list(pending_discovery_requests.items()):
+            if request_data.get('agent_id') == agent_id:
+                request = request_data['request']
+                # Remove the request so it's only processed once
+                del pending_discovery_requests[session_id]
+                
+                # Log the request type and details safely
+                request_type = request.get('discovery_type', 'unknown')
+                logger.info(f"🔍 DEBUG: Returning pending {request_type} request for agent {agent_id}: {session_id}")
+                return [request]
+        
+        # Check for legacy discovery requests (old format)
         if agent_id in pending_discovery_requests:
             request = pending_discovery_requests[agent_id]
             # Remove the request so it's only processed once
@@ -3262,8 +3275,6 @@ async def get_pending_discovery_requests(
             return [request]
         
         logger.info(f"🔍 DEBUG: No pending discovery requests found for agent {agent_id}")
-        return []
-        
         return []
         
     except HTTPException:

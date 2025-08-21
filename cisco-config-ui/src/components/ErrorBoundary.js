@@ -1,6 +1,12 @@
-import { Component } from 'react';
+import React from 'react';
+import { Box, Typography, Button } from '@mui/material';
 
-class ErrorBoundary extends Component {
+/**
+ * Error Boundary Component
+ * Catches JavaScript errors anywhere in the child component tree
+ * and displays a fallback UI instead of the component tree that crashed
+ */
+class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
@@ -12,73 +18,124 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log the error to console and potentially to error reporting service
-    console.error('Error Boundary caught an error:', error, errorInfo);
-    
+    // Log error information
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({
       error: error,
       errorInfo: errorInfo
     });
-
-    // You can also log the error to an error reporting service here
-    // Example: logErrorToService(error, errorInfo);
   }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+    // Force a complete re-render by updating a key or calling a reset function
+    if (this.props.onReset) {
+      this.props.onReset();
+    }
+  };
 
   render() {
     if (this.state.hasError) {
-      // Custom error UI
+      // Custom fallback UI
       return (
-        <div className="min-h-screen bg-black text-white flex items-center justify-center">
-          <div className="max-w-md w-full mx-4 text-center">
-            <div className="mb-6">
-              <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold text-white mb-2">Something went wrong</h1>
-              <p className="text-gray-400 mb-6">
-                We're sorry, but something unexpected happened. Please try refreshing the page.
-              </p>
-            </div>
-            
-            <div className="space-y-3">
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
-              >
-                Refresh Page
-              </button>
-              
-              <button
-                onClick={() => window.location.href = '/login'}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
-              >
-                Go to Login
-              </button>
-            </div>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          width: '100%',
+          background: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 50%, #1a1a1a 100%)',
+          color: '#ffffff',
+          p: 3,
+          textAlign: 'center'
+        }}>
+          <Typography variant="h4" sx={{ 
+            color: '#ff0000', 
+            mb: 2,
+            fontWeight: 'bold'
+          }}>
+            🚨 Something went wrong
+          </Typography>
+          
+          <Typography variant="body1" sx={{ 
+            color: '#cccccc', 
+            mb: 3,
+            maxWidth: '600px'
+          }}>
+            The network diagram encountered an unexpected error. This might be due to a temporary issue or corrupted data.
+          </Typography>
 
-            {/* Show error details in development */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details className="mt-6 text-left">
-                <summary className="cursor-pointer text-gray-400 hover:text-white mb-2">
-                  Error Details (Development Only)
-                </summary>
-                <div className="bg-gray-900 p-4 rounded-lg text-sm">
-                  <p className="text-red-400 font-bold mb-2">Error:</p>
-                  <pre className="whitespace-pre-wrap text-gray-300 mb-4">
-                    {this.state.error.toString()}
-                  </pre>
-                  
-                  <p className="text-red-400 font-bold mb-2">Component Stack:</p>
-                  <pre className="whitespace-pre-wrap text-gray-300 text-xs">
-                    {this.state.errorInfo.componentStack}
-                  </pre>
-                </div>
-              </details>
-            )}
-          </div>
-        </div>
+          {process.env.NODE_ENV === 'development' && this.state.error && (
+            <Box sx={{
+              background: 'rgba(255, 0, 0, 0.1)',
+              border: '1px solid #ff0000',
+              borderRadius: '8px',
+              p: 2,
+              mb: 3,
+              maxWidth: '600px',
+              textAlign: 'left'
+            }}>
+              <Typography variant="subtitle2" sx={{ color: '#ff0000', mb: 1 }}>
+                Error Details (Development):
+              </Typography>
+              <Typography variant="body2" sx={{ 
+                color: '#ffcccc', 
+                fontFamily: 'monospace',
+                fontSize: '0.8em',
+                wordBreak: 'break-word'
+              }}>
+                {this.state.error.toString()}
+              </Typography>
+            </Box>
+          )}
+
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Button
+              variant="contained"
+              onClick={this.handleRetry}
+              sx={{
+                background: 'linear-gradient(90deg, #00ff00 0%, #00cc00 100%)',
+                color: '#000000',
+                fontWeight: 'bold',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, #00cc00 0%, #009900 100%)',
+                  boxShadow: '0 0 10px rgba(0, 255, 0, 0.3)'
+                }
+              }}
+            >
+              🔄 Try Again
+            </Button>
+            
+            <Button
+              variant="outlined"
+              onClick={this.handleReset}
+              sx={{
+                border: '1px solid #00ff00',
+                color: '#00ff00',
+                fontWeight: 'bold',
+                '&:hover': {
+                  background: 'rgba(0, 255, 0, 0.1)',
+                  border: '1px solid #00ff00'
+                }
+              }}
+            >
+              🔄 Reset Component
+            </Button>
+          </Box>
+
+          <Typography variant="caption" sx={{ 
+            color: 'rgba(255, 255, 255, 0.5)', 
+            mt: 3,
+            fontStyle: 'italic'
+          }}>
+            If the problem persists, please refresh the page or contact support.
+          </Typography>
+        </Box>
       );
     }
 

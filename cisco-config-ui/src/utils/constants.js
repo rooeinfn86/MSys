@@ -165,4 +165,60 @@ export const LOADING_MESSAGES = {
   LOADING_DEVICE_INFO: 'Loading device information...',
   LOADING_INTERFACES: 'Loading interface information...',
   LOADING_HEALTH: 'Loading health information...'
+};
+
+/**
+ * Matrix animation settings
+ */
+export const MATRIX_ANIMATION = {
+  FONT_SIZE: 16,
+  BINARY_CHARS: ['0', '1'],
+  FALL_SPEED: 0.2,
+  RESET_PROBABILITY: 0.975,
+  WHITE_CHAR_PROBABILITY: 0.95,
+  DEBUG_LOG_PROBABILITY: 0.016,
+  RETRY_DELAY: 50
+};
+
+/**
+ * Canvas rendering settings
+ */
+export const CANVAS_SETTINGS = {
+  IMAGE_SMOOTHING: false,
+  OPACITY: 0.8,
+  RENDERING: 'crisp-edges'
+};
+
+/**
+ * Tooltip settings
+ */
+export const TOOLTIP_SETTINGS = {
+  OFFSET_X: 10,
+  OFFSET_Y: -10,
+  Z_INDEX: 1000
+};
+
+/**
+ * Cytoscape event settings
+ */
+export const CYTOSCAPE_EVENTS = {
+  MOUSE_WHEEL_CTRL_KEY: 'ctrlKey',
+  TOOLTIP_ID: 'device-tooltip'
+};
+
+/**
+ * Modal refresh settings
+ */
+export const MODAL_REFRESH = {
+  DEVICE_INFO_ENDPOINT: '/api/v1/topology/{networkId}/device/{deviceId}/info',
+  REFRESH_DELAY: 1000
+};
+
+/**
+ * Topology refresh settings
+ */
+export const TOPOLOGY_REFRESH = {
+  CACHE_CLEAR_ENDPOINT: '/api/v1/topology/{networkId}/cache',
+  DISCOVER_ENDPOINT: '/api/v1/topology/{networkId}/discover',
+  FORCE_REFRESH_PARAM: 'force_refresh=true'
 }; 

@@ -1,7 +1,8 @@
 from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body
 from sqlalchemy.orm import Session
 from datetime import datetime
+import time
 
 from app.api import deps
 from app.core.snmp_poller import SNMPPoller
@@ -613,6 +614,213 @@ async def get_device_info(
     except Exception as e:
         logging.error(f"Error getting device info for {device.name}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve device information")
+
+
+@router.post("/{network_id}/device/update", response_model=Dict[str, Any])
+async def update_device_from_agent(
+    network_id: int,
+    device_update: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Receive device updates from agents and update the database.
+    This endpoint is called by agents after they discover/refresh device information.
+    """
+    try:
+        device_info = device_update.get('device_info', {})
+        device_ip = device_info.get('ip_address')
+        
+        if not device_ip:
+            raise HTTPException(status_code=400, detail="Device IP address is required")
+        
+        logging.info(f"Received device update from agent for IP {device_ip} in network {network_id}")
+        
+        # Find the device by IP and network
+        device = db.query(Device).filter(
+            Device.ip == device_ip,
+            Device.network_id == network_id
+        ).first()
+        
+        if not device:
+            # Create new device if it doesn't exist
+            device = Device(
+                name=device_info.get('hostname', device_ip),
+                ip=device_ip,
+                type=device_info.get('device_type', 'Unknown'),
+                platform=device_info.get('platform', 'Unknown'),
+                os_version=device_info.get('os_version', 'Unknown'),
+                serial_number=device_info.get('serial_number', 'Unknown'),
+                network_id=network_id,
+                discovery_method=device_info.get('discovery_method', 'auto'),
+                is_active=True,
+                ping_status=True,  # If agent can reach it, ping is working
+                snmp_status=device_info.get('discovery_method') == 'snmp',
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.add(device)
+            db.flush()  # Get the device ID
+            logging.info(f"Created new device {device.name} ({device_ip})")
+        else:
+            # Update existing device
+            device.name = device_info.get('hostname', device.name)
+            device.type = device_info.get('device_type', device.type)
+            device.platform = device_info.get('platform', device.platform)
+            device.os_version = device_info.get('os_version', device.os_version)
+            device.serial_number = device_info.get('serial_number', device.serial_number)
+            device.discovery_method = device_info.get('discovery_method', device.discovery_method)
+            device.ping_status = True
+            device.snmp_status = device_info.get('discovery_method') == 'snmp'
+            device.updated_at = datetime.utcnow()
+            logging.info(f"Updated existing device {device.name} ({device_ip})")
+        
+        # Update or create device topology information
+        device_topology = db.query(DeviceTopology).filter(
+            DeviceTopology.device_id == device.id
+        ).first()
+        
+        if not device_topology:
+            # Create new device topology record
+            device_topology = DeviceTopology(
+                device_id=device.id,
+                network_id=network_id,
+                hostname=device_info.get('hostname'),
+                vendor=device_info.get('vendor'),
+                model=device_info.get('model'),
+                uptime=device_info.get('uptime'),
+                last_polled=datetime.utcnow(),
+                health_data={
+                    'discovery_method': device_info.get('discovery_method'),
+                    'session_id': device_info.get('session_id'),
+                    'capabilities': device_info.get('capabilities', []),
+                    'description': device_info.get('description'),
+                    'location': device_info.get('location'),
+                    'contact': device_info.get('contact'),
+                    'object_id': device_info.get('object_id')
+                }
+            )
+            db.add(device_topology)
+            logging.info(f"Created new device topology for {device.name}")
+        else:
+            # Update existing device topology
+            device_topology.hostname = device_info.get('hostname', device_topology.hostname)
+            device_topology.vendor = device_info.get('vendor', device_topology.vendor)
+            device_topology.model = device_info.get('model', device_topology.model)
+            device_topology.uptime = device_info.get('uptime', device_topology.uptime)
+            device_topology.last_polled = datetime.utcnow()
+            device_topology.health_data = {
+                'discovery_method': device_info.get('discovery_method'),
+                'session_id': device_info.get('session_id'),
+                'capabilities': device_info.get('capabilities', []),
+                'description': device_info.get('description'),
+                'location': device_info.get('location'),
+                'contact': device_info.get('contact'),
+                'object_id': device_info.get('object_id')
+            }
+            logging.info(f"Updated device topology for {device.name}")
+        
+        # Commit all changes
+        db.commit()
+        
+        logging.info(f"Successfully updated device {device.name} ({device_ip}) in database")
+        
+        return {
+            "message": f"Device {device.name} updated successfully",
+            "device_id": device.id,
+            "device_name": device.name,
+            "device_ip": device_ip,
+            "status": "updated",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Error updating device from agent: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update device: {str(e)}")
+
+
+@router.post("/{network_id}/device/{device_id}/refresh", response_model=Dict[str, Any])
+async def refresh_device_info(
+    network_id: int,
+    device_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Trigger agent refresh for a specific device to get latest information.
+    """
+    # Verify network exists and user has access
+    network = db.query(Network).filter(Network.id == network_id).first()
+    if not network:
+        raise HTTPException(status_code=404, detail="Network not found")
+
+    # Get the device
+    device = db.query(Device).filter(
+        Device.id == device_id,
+        Device.network_id == network_id
+    ).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    try:
+        # Find available agents for this network
+        from app.models.base import Agent, AgentNetworkAccess
+        
+        # Get agents that have access to this network
+        available_agents = db.query(Agent).join(AgentNetworkAccess).filter(
+            AgentNetworkAccess.network_id == network_id,
+            Agent.is_active == True
+        ).all()
+        
+        if not available_agents:
+            raise HTTPException(status_code=404, detail="No active agents available for this network")
+        
+        # Select the first available agent (you can implement agent selection logic here)
+        selected_agent = available_agents[0]
+        
+        # Create a discovery request for this specific device
+        discovery_request = {
+            "session_id": f"refresh_{device_id}_{int(time.time())}",
+            "network_id": network_id,
+            "discovery_type": "device_refresh",
+            "target_device": {
+                "ip": device.ip,
+                "device_id": device.id,
+                "device_name": device.name
+            },
+            "discovery_method": {
+                "method": "auto",  # Use auto discovery (SNMP + SSH)
+                "snmp_config": {
+                    "snmp_version": "v2c",
+                    "community": "public",  # You can make this configurable
+                    "port": 161
+                }
+            }
+        }
+        
+        # Store the discovery request in pending requests
+        from app.api.v1.endpoints.agents import pending_discovery_requests
+        pending_discovery_requests[discovery_request["session_id"]] = {
+            "agent_id": selected_agent.id,
+            "request": discovery_request,
+            "created_at": datetime.utcnow(),
+            "status": "pending"
+        }
+        
+        logging.info(f"Device refresh requested for {device.name} ({device.ip}) via agent {selected_agent.name}")
+        
+        return {
+            "message": f"Device refresh initiated for {device.name}",
+            "session_id": discovery_request["session_id"],
+            "agent_id": selected_agent.id,
+            "agent_name": selected_agent.name,
+            "status": "pending",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Error refreshing device {device.name}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to refresh device: {str(e)}")
 
 @router.get("/{network_id}/device/{device_id}/interfaces", response_model=Dict[str, Any])
 async def get_device_interfaces(

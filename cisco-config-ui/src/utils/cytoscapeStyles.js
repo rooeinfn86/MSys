@@ -23,6 +23,53 @@ export const defaultLayout = {
 };
 
 /**
+ * Enhanced layout configuration with better performance
+ */
+export const enhancedLayout = {
+  name: 'cose',
+  idealEdgeLength: 150,
+  nodeOverlap: 20,
+  refresh: 20,
+  fit: true,
+  padding: 50,
+  randomize: false,
+  componentSpacing: 150,
+  nodeRepulsion: 450000,
+  edgeElasticity: 150,
+  nestingFactor: 5,
+  gravity: 100,
+  numIter: 1000,
+  initialTemp: 200,
+  coolingFactor: 0.95,
+  minTemp: 1.0
+};
+
+/**
+ * Alternative layout configurations
+ */
+export const alternativeLayouts = {
+  grid: {
+    name: 'grid',
+    fit: true,
+    padding: 50,
+    nodeDimensionsIncludeLabels: true
+  },
+  circle: {
+    name: 'circle',
+    fit: true,
+    padding: 50,
+    radius: 200
+  },
+  concentric: {
+    name: 'concentric',
+    fit: true,
+    padding: 50,
+    startAngle: 0,
+    sweep: 360
+  }
+};
+
+/**
  * Cytoscape stylesheet for network topology visualization
  */
 export const topologyStyles = [

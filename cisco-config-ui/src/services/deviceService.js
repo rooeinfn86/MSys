@@ -202,5 +202,56 @@ export const deviceService = {
       console.error("❌ Failed to refresh devices:", err);
       throw err;
     }
+  },
+
+  // Topology-related device operations
+  async getDeviceFromTopology(networkId, deviceId) {
+    try {
+      const response = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching device from topology:', error);
+      throw new Error('Failed to fetch device from topology');
+    }
+  },
+
+  async getDeviceMetrics(networkId, deviceId) {
+    try {
+      const response = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}/metrics`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching device metrics:', error);
+      throw new Error('Failed to fetch device metrics');
+    }
+  },
+
+  async getDeviceConfiguration(networkId, deviceId) {
+    try {
+      const response = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}/config`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching device configuration:', error);
+      throw new Error('Failed to fetch device configuration');
+    }
+  },
+
+  async backupDeviceConfiguration(networkId, deviceId) {
+    try {
+      const response = await api.post(`/api/v1/topology/${networkId}/device/${deviceId}/backup`);
+      return response.data;
+    } catch (error) {
+      console.error('Error backing up device configuration:', error);
+      throw new Error('Failed to backup device configuration');
+    }
+  },
+
+  async restoreDeviceConfiguration(networkId, deviceId, configData) {
+    try {
+      const response = await api.post(`/api/v1/topology/${networkId}/device/${deviceId}/restore`, configData);
+      return response.data;
+    } catch (error) {
+      console.error('Error restoring device configuration:', error);
+      throw new Error('Failed to restore device configuration');
+    }
   }
 }; 

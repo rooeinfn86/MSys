@@ -10,4 +10,10 @@ export * from './cytoscapeStyles';
 export * from './deviceIcons';
 
 // Constants and configuration
-export * from './constants'; 
+export * from './constants';
+
+// Matrix animation utilities
+export * from './matrixAnimation';
+
+// Tooltip management utilities
+export * from './tooltipUtils'; 

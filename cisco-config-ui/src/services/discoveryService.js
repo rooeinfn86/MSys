@@ -137,5 +137,71 @@ export const discoveryService = {
       console.error("❌ Failed to cancel discovery:", error);
       throw error;
     }
+  },
+
+  // Topology discovery operations
+  async startTopologyDiscovery(networkId) {
+    try {
+      const response = await api.post(`/api/v1/topology/${networkId}/discover`);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Failed to start topology discovery:", error);
+      throw new Error('Failed to start topology discovery');
+    }
+  },
+
+  async getTopologyDiscoveryStatus(networkId) {
+    try {
+      const response = await api.get(`/api/v1/topology/${networkId}/discovery/status`);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Failed to get topology discovery status:", error);
+      throw new Error('Failed to get topology discovery status');
+    }
+  },
+
+  async waitForTopologyDiscovery(networkId, maxAttempts = 30) {
+    try {
+      let attempts = 0;
+      
+      while (attempts < maxAttempts) {
+        const status = await this.getTopologyDiscoveryStatus(networkId);
+        
+        if (status.status === 'completed') {
+          return status;
+        } else if (status.status === 'failed') {
+          throw new Error('Topology discovery failed');
+        }
+        
+        // Wait before next attempt
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        attempts++;
+      }
+      
+      throw new Error('Topology discovery timeout - maximum attempts reached');
+    } catch (error) {
+      console.error("❌ Error waiting for topology discovery:", error);
+      throw error;
+    }
+  },
+
+  async discoverDeviceNeighbors(networkId, deviceId) {
+    try {
+      const response = await api.post(`/api/v1/topology/${networkId}/device/${deviceId}/discover`);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Failed to discover device neighbors:", error);
+      throw new Error('Failed to discover device neighbors');
+    }
+  },
+
+  async getDiscoveryProgress(networkId) {
+    try {
+      const response = await api.get(`/api/v1/topology/${networkId}/discovery/progress`);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Failed to get discovery progress:", error);
+      return { progress: 0, status: 'unknown' };
+    }
   }
 }; 
