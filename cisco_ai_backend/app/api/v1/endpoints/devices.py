@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 import re
 from enum import Enum
 import socket
+import shutil
 from functools import partial
 from sqlalchemy import insert
 import json
@@ -92,15 +93,41 @@ def ping_device(ip: str) -> bool:
     try:
         system = platform.system().lower()
         if system == "windows":
-            cmd = ["ping", "-n", "1", "-w", "1000", ip]
+            # On Windows, use the full path to ping or try to find it
+            ping_path = shutil.which("ping")
+            if ping_path:
+                cmd = [ping_path, "-n", "1", "-w", "1000", ip]
+            else:
+                # Fallback to system32 ping
+                cmd = ["C:\\Windows\\System32\\ping.exe", "-n", "1", "-w", "1000", ip]
         else:
             cmd = ["ping", "-c", "1", "-W", "1", ip]
 
-        output = subprocess.run(cmd, stdout=subprocess.DEVNULL)
-        print(f"[PING] {ip} -> {'✅' if output.returncode == 0 else '❌'}")
+        print(f"[PING] Running command: {' '.join(cmd)}")
+        
+        # Use shell=True on Windows to ensure command execution
+        if system == "windows":
+            output = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+        else:
+            output = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+        print(f"[PING] {ip} -> {'✅' if output.returncode == 0 else '❌'} (return code: {output.returncode})")
         return output.returncode == 0
     except Exception as e:
         print(f"[PING ERROR] {ip}: {e}")
+        # On Windows, if ping fails, try a simple socket connection as fallback
+        if system == "windows":
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                result = sock.connect_ex((ip, 22))  # Try SSH port as fallback
+                sock.close()
+                print(f"[PING FALLBACK] {ip} -> {'✅' if result == 0 else '❌'} (socket test)")
+                return result == 0
+            except Exception as fallback_error:
+                print(f"[PING FALLBACK ERROR] {ip}: {fallback_error}")
+                return False
         return False
 
 # Cache for device status
