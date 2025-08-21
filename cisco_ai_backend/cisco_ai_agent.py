@@ -309,7 +309,12 @@ class CiscoAIAgent:
                 return
             
             # Step 2: Test SNMP connectivity
-            snmp_success, snmp_info = self.test_snmp_connectivity(device_ip, snmp_config)
+            snmp_result = self.test_snmp_connectivity(device_ip, snmp_config)
+            if isinstance(snmp_result, tuple):
+                snmp_success, snmp_info = snmp_result
+            else:
+                snmp_success = snmp_result
+                snmp_info = "SNMP test result"
             
             if not snmp_success:
                 logger.warning(f"[{session_id}] SNMP test failed for {device_ip}: {snmp_info}")
