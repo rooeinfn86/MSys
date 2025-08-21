@@ -65,14 +65,8 @@ const DeviceInfoModal = React.memo(({
         }
       }}>
         {loading && (
-          <Box display="flex" flexDirection="column" alignItems="center" p={3}>
-            <CircularProgress sx={{ color: '#00ff00', mb: 2 }} />
-            <Typography variant="body2" color="#00ff00" textAlign="center">
-              Refreshing device information...
-            </Typography>
-            <Typography variant="caption" color="rgba(0, 255, 0, 0.7)" textAlign="center" mt={1}>
-              Agent is collecting fresh data from the network
-            </Typography>
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress sx={{ color: '#00ff00' }} />
           </Box>
         )}
 

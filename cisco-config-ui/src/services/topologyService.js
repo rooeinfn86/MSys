@@ -105,7 +105,7 @@ export const topologyService = {
   },
 
   /**
-   * Get device information
+   * Get device information from topology
    * @param {string} networkId - Network ID
    * @param {string} deviceId - Device ID
    * @returns {Promise<Object>} Device information
@@ -117,23 +117,6 @@ export const topologyService = {
     } catch (error) {
       console.error('Error fetching device info:', error);
       throw new Error('Failed to fetch device information');
-    }
-  },
-
-  /**
-   * Trigger agent refresh for a specific device
-   * @param {string} networkId - Network ID
-   * @param {string} deviceId - Device ID
-   * @returns {Promise<Object>} Refresh response
-   */
-  async triggerDeviceRefresh(networkId, deviceId) {
-    try {
-      console.log(`🔄 Triggering agent refresh for device ${deviceId} in network ${networkId}`);
-      const response = await api.post(`/api/v1/topology/${networkId}/device/${deviceId}/refresh`);
-      return response.data;
-    } catch (error) {
-      console.error('Error triggering device refresh:', error);
-      throw new Error('Failed to trigger device refresh');
     }
   },
 

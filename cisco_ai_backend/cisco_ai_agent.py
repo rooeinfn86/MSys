@@ -224,8 +224,6 @@ class CiscoAIAgent:
                         self.handle_enhanced_discovery_request(request)
                     elif request.get('type') == 'status_test':
                         self.handle_status_test_request(request)
-                    elif request.get('discovery_type') == 'device_refresh':
-                        self.handle_device_refresh_request(request)
                     
         except Exception as e:
             logger.error(f"Error checking for discovery requests: {e}")
@@ -274,27 +272,6 @@ class CiscoAIAgent:
         except Exception as e:
             logger.error(f"Error handling status test request: {e}")
     
-    def handle_device_refresh_request(self, request_data: Dict):
-        """Handle device refresh request for a specific device"""
-        try:
-            session_id = request_data.get('session_id')
-            network_id = request_data.get('network_id')
-            target_device = request_data.get('target_device', {})
-            discovery_method = request_data.get('discovery_method', {})
-            
-            logger.info(f"Received device refresh request: session_id={session_id}, network_id={network_id}, device={target_device.get('name', 'unknown')}")
-            
-            # Start device refresh in background thread
-            refresh_thread = threading.Thread(
-                target=self.perform_device_refresh,
-                args=(session_id, network_id, target_device, discovery_method),
-                daemon=True
-            )
-            refresh_thread.start()
-            
-        except Exception as e:
-            logger.error(f"Error handling device refresh request: {e}")
-    
     def perform_status_test(self, session_id: str, network_id: int, devices: List[Dict]):
         """Perform status testing for devices"""
         try:
@@ -331,123 +308,7 @@ class CiscoAIAgent:
                 logger.warning(f"[{session_id}] No device statuses to report")
             
         except Exception as e:
-            logger.error(f"Error in status test for session {session_id}: {e}")
-    
-    def perform_device_refresh(self, session_id: str, network_id: int, target_device: Dict, discovery_method: Dict):
-        """Perform device refresh for a specific device"""
-        try:
-            logger.info(f"Starting device refresh for session {session_id}: device {target_device.get('name', 'unknown')} ({target_device.get('ip', 'unknown')})")
-            
-            device_ip = target_device.get('ip')
-            if not device_ip:
-                logger.error(f"[{session_id}] No IP address provided for device refresh")
-                return
-            
-            # Notify backend that refresh has started
-            self.notify_discovery_status("started", f"device_{target_device.get('id', 'unknown')}", 0, None)
-            
-            # Perform device discovery for this specific device
-            discovered_devices = []
-            
-            # Try SNMP discovery first
-            if discovery_method.get('method') in ['auto', 'snmp']:
-                try:
-                    snmp_config = discovery_method.get('snmp_config', {})
-                    device_info = self.snmpv1v2c_get_device_info(
-                        device_ip, 
-                        snmp_config.get('community', 'public'),
-                        snmp_config.get('port', 161),
-                        snmp_config.get('snmp_version', 'v2c')
-                    )
-                    if device_info:
-                        device_info['discovery_method'] = 'snmp'
-                        device_info['session_id'] = session_id
-                        discovered_devices.append(device_info)
-                        logger.info(f"[{session_id}] SNMP discovery successful for {device_ip}")
-                except Exception as e:
-                    logger.warning(f"[{session_id}] SNMP discovery failed for {device_ip}: {e}")
-            
-            # Try SSH discovery if SNMP failed or if method is auto
-            if not discovered_devices and discovery_method.get('method') in ['auto', 'ssh']:
-                try:
-                    # Try common SSH credentials
-                    credentials = [
-                        ('admin', 'admin'),
-                        ('cisco', 'cisco'),
-                        ('root', 'root')
-                    ]
-                    
-                    for username, password in credentials:
-                        try:
-                            device_info = self.ssh_get_device_info(device_ip, username, password)
-                            if device_info:
-                                device_info['discovery_method'] = 'ssh'
-                                device_info['session_id'] = session_id
-                                discovered_devices.append(device_info)
-                                logger.info(f"[{session_id}] SSH discovery successful for {device_ip}")
-                                break
-                        except:
-                            continue
-                            
-                except Exception as e:
-                    logger.warning(f"[{session_id}] SSH discovery failed for {device_ip}: {e}")
-            
-            # If no discovery method worked, try ping
-            if not discovered_devices:
-                try:
-                    device_info = self.ping_discovery(device_ip)
-                    if device_info:
-                        device_info['session_id'] = session_id
-                        discovered_devices.append(device_info)
-                        logger.info(f"[{session_id}] Ping discovery successful for {device_ip}")
-                except Exception as e:
-                    logger.warning(f"[{session_id}] Ping discovery failed for {device_ip}: {e}")
-            
-            # Report results to backend
-            if discovered_devices:
-                # Update device status in backend
-                self.update_device_in_backend(network_id, discovered_devices[0])
-                
-                # Notify backend that refresh completed successfully
-                self.notify_discovery_status("completed", f"device_{target_device.get('id', 'unknown')}", 1, None)
-                logger.info(f"[{session_id}] Device refresh completed successfully for {device_ip}")
-            else:
-                # Notify backend that refresh failed
-                self.notify_discovery_status("failed", f"device_{target_device.get('id', 'unknown')}", 0, "No discovery method succeeded")
-                logger.error(f"[{session_id}] Device refresh failed for {device_ip}: no discovery method succeeded")
-            
-        except Exception as e:
-            logger.error(f"Error in device refresh for session {session_id}: {e}")
-            self.notify_discovery_status("failed", f"device_{target_device.get('id', 'unknown')}", 0, str(e))
-    
-    def update_device_in_backend(self, network_id: int, device_info: Dict):
-        """Update device information in the backend"""
-        try:
-            # Send updated device information to backend
-            update_data = {
-                'network_id': network_id,
-                'device_info': device_info,
-                'timestamp': datetime.utcnow().isoformat()
-            }
-            
-            response = self.safe_request(
-                'POST',
-                f"{self.backend_url.rstrip('/')}/api/v1/topology/{network_id}/device/update",
-                headers={'X-Agent-Token': self.agent_token},
-                json=update_data,
-                timeout=15
-            )
-            
-            if response and response.status_code == 200:
-                logger.info(f"Successfully updated device {device_info.get('ip_address', 'unknown')} in backend")
-                return True
-            else:
-                logger.warning(f"Failed to update device in backend: {response.status_code if response else 'No response'}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error updating device in backend: {e}")
-            return False
+            logger.error(f"[{session_id}] Error performing status test: {e}")
     
     def start_enhanced_discovery(self, session_id: str, network_id: int, discovery_method: Dict, 
                                 credentials: Dict, ip_range: str = None, start_ip: str = None, end_ip: str = None):

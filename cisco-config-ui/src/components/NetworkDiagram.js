@@ -7,6 +7,7 @@ import {
 } from './modals';
 import TopologyCanvas from './NetworkDiagram/TopologyCanvas';
 import TopologyControls from './NetworkDiagram/TopologyControls';
+import MatrixAnimation from './NetworkDiagram/MatrixAnimation';
 import { useNetworkDiagramState } from '../hooks';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -53,6 +54,10 @@ const NetworkDiagram = React.memo(({ networkId }) => {
     style,
     getCytoscapeEventHandlers,
     setCytoscapeInstance,
+    
+    // Animation
+    canvasRef,
+    getCanvasStyle,
     
     // Container
     containerRef: sizeContainerRef
@@ -106,6 +111,11 @@ const NetworkDiagram = React.memo(({ networkId }) => {
         onRefresh={handleRefresh}
       />
 
+      {/* Layer 1: Matrix Animation Canvas (z-index: 0) */}
+      <MatrixAnimation
+        canvasRef={canvasRef}
+        getCanvasStyle={getCanvasStyle}
+      />
       {/* Layer 2: Cytoscape Network Diagram (z-index: 1) */}
               <TopologyCanvas
           elements={elements}

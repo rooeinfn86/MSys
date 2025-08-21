@@ -98,7 +98,7 @@ class Organization(Base):
     agents = relationship("Agent", back_populates="organization", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Organization(id={self.id}, name='{self.name}', owner_id={self.owner_id})>"
+        return f"<Organization(id={self.id}, name='{self.name}')>"
 
 
 class Network(Base):
@@ -206,50 +206,66 @@ class UserFeatureAccess(Base):
 
 class Agent(Base):
     __tablename__ = "agents"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, index=True)
-    agent_token = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    status = Column(String, nullable=True)
-    last_heartbeat = Column(DateTime, nullable=True)
-    capabilities = Column(JSON, nullable=True)
-    version = Column(String, nullable=True)
-    created_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, nullable=True)
+    agent_token = Column(String, unique=True, nullable=False)
+    status = Column(String, default="offline")  # online/offline/error
+    last_heartbeat = Column(DateTime, default=datetime.utcnow)
+    capabilities = Column(JSON)  # List of agent capabilities
+    version = Column(String, default="1.0.0")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # New agent token management fields
+    token_status = Column(String, nullable=False, default='active')
+    scopes = Column(JSON, nullable=True, default=lambda: ["monitoring", "heartbeat"])
+    issued_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    rotated_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+    last_used_at = Column(DateTime, nullable=True)
+    last_used_ip = Column(String, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     
-    # Topology discovery fields (these exist from the topology migration)
-    topology_discovery_status = Column(String, default="idle")
+    # Topology discovery fields
+    topology_discovery_status = Column(String, default="idle")  # idle, discovering, completed, failed
     last_topology_discovery = Column(DateTime, nullable=True)
-    topology_discovery_config = Column(JSON, nullable=True)
+    topology_discovery_config = Column(JSON, nullable=True)  # Discovery settings and preferences
     discovered_devices_count = Column(Integer, default=0)
     topology_last_updated = Column(DateTime, nullable=True)
-    topology_discovery_progress = Column(Integer, default=0)
-    topology_error_message = Column(Text, nullable=True)
+    topology_discovery_progress = Column(Integer, default=0)  # Progress percentage (0-100)
+    topology_error_message = Column(Text, nullable=True)  # Error message if discovery failed
 
-    # Relationships
     company = relationship("Company", back_populates="agents")
     organization = relationship("Organization", back_populates="agents")
     network_access = relationship("AgentNetworkAccess", back_populates="agent", cascade="all, delete-orphan")
+    # New: audit log relationship
+    audit_logs = relationship("AgentTokenAuditLog", back_populates="agent", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Agent(id={self.id}, name='{self.name}', status='{self.status}')>"
+        return f"<Agent(id={self.id}, name='{self.name}', company_id={self.company_id}, org_id={self.organization_id})>"
 
 
 class AgentNetworkAccess(Base):
     __tablename__ = "agent_network_access"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
-    network_id = Column(Integer, ForeignKey("networks.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    network_id = Column(Integer, ForeignKey("networks.id", ondelete="CASCADE"), nullable=False)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    created_at = Column(DateTime, nullable=True)
-
-    # Relationships
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
     agent = relationship("Agent", back_populates="network_access")
-    network = relationship("Network", back_populates="agent_access")
+    network = relationship("Network")
+    company = relationship("Company")
+    organization = relationship("Organization")
+
+    __table_args__ = (
+        UniqueConstraint('agent_id', 'network_id', name='uq_agent_network'),
+    )
 
     def __repr__(self):
         return f"<AgentNetworkAccess(agent_id={self.agent_id}, network_id={self.network_id})>"
@@ -300,18 +316,16 @@ class DeviceLog(Base):
 
 # New: AgentTokenAuditLog model
 class AgentTokenAuditLog(Base):
-    __tablename__ = "agent_token_audit_log"
-
-    id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
-    event_type = Column(String, nullable=False)  # created, revoked, used, etc.
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    __tablename__ = "agent_token_audit_logs"
+    id = Column(Integer, primary_key=True)
+    agent_id = Column(Integer, ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String, nullable=False)  # e.g., 'issued', 'used', 'rotated', 'revoked', 'failed_auth'
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
     ip_address = Column(String, nullable=True)
-    details = Column(JSONB, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    details = Column(JSON, nullable=True)
 
-    def __repr__(self):
-        return f"<AgentTokenAuditLog(agent_id={self.agent_id}, event_type='{self.event_type}')>"
+    agent = relationship("Agent", back_populates="audit_logs")
 
 
 

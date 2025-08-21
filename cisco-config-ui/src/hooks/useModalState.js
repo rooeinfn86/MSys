@@ -86,11 +86,6 @@ const useModalState = (networkId) => {
       }));
 
       const deviceId = deviceInfoModal.data.id.replace('device_', '');
-      
-      // First, trigger agent refresh for this specific device
-      await topologyService.triggerDeviceRefresh(networkId, deviceId);
-      
-      // Then fetch the updated device information
       const deviceInfo = await topologyService.getDeviceInfo(networkId, deviceId);
       
       setDeviceInfoModal(prev => ({
@@ -107,7 +102,7 @@ const useModalState = (networkId) => {
         error: err.message || 'Failed to refresh device information'
       }));
     }
-  }, [deviceInfoModal.data, networkId]);
+  }, [networkId, deviceInfoModal.data]);
 
   // Handle interface information modal
   const handleInterfaceInfo = useCallback(async (nodeData) => {
