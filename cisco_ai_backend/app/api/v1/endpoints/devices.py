@@ -2082,3 +2082,136 @@ async def refresh_device_status_agent(
     except Exception as e:
         print(f"[SINGLE STATUS] Error in refresh_device_status_agent: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{device_id}/refresh-full")
+async def refresh_device_full(
+    device_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Enhanced device refresh that collects MIB-2 information using auto discovery"""
+    try:
+        print(f"[FULL REFRESH] Starting enhanced refresh for device {device_id}")
+        
+        # Get device and verify access
+        device = db.query(Device).filter(Device.id == device_id).first()
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        # Check network access
+        network = check_network_access(db, current_user, device.network_id)
+        if not network:
+            raise HTTPException(status_code=403, detail="No access to this network")
+
+        print(f"[FULL REFRESH] Device {device.name} ({device.ip}) in network {device.network_id}")
+
+        # Get SNMP configuration
+        snmp_config = None
+        if hasattr(device, 'snmp_config') and device.snmp_config:
+            snmp_config = {
+                'snmp_version': device.snmp_config.snmp_version,
+                'community': device.snmp_config.community,
+                'username': device.snmp_config.username,
+                'auth_protocol': device.snmp_config.auth_protocol,
+                'auth_password': device.snmp_config.auth_password,
+                'priv_protocol': device.snmp_config.priv_protocol,
+                'priv_password': device.snmp_config.priv_password,
+                'port': device.snmp_config.port
+            }
+        else:
+            # Use default SNMP config if none exists
+            snmp_config = {
+                'snmp_version': 'v2c',
+                'community': 'public',
+                'port': 161
+            }
+
+        print(f"[FULL REFRESH] Using SNMP config: {snmp_config}")
+
+        # Step 1: Run device discovery (like scan_single_device)
+        print(f"[FULL REFRESH] Step 1: Running device discovery for {device.ip}")
+        discovery_result = await scan_single_device(
+            ip_address=device.ip,
+            username=device.username,
+            password=device.password,
+            device_type=device.type or 'cisco_ios',
+            network_id=device.network_id,
+            company_id=device.company_id,
+            db=db,
+            owner_id=device.owner_id,
+            snmp_config=snmp_config
+        )
+
+        if discovery_result["status"] != "success":
+            print(f"[FULL REFRESH] Device discovery failed: {discovery_result['message']}")
+            return {
+                "message": f"Device discovery failed: {discovery_result['message']}",
+                "status": "failed",
+                "device_id": device_id,
+                "error": discovery_result['message']
+            }
+
+        print(f"[FULL REFRESH] Device discovery successful: {discovery_result}")
+
+        # Step 2: Run topology discovery to collect MIB-2 information
+        print(f"[FULL REFRESH] Step 2: Running topology discovery for MIB-2 info")
+        try:
+            from app.api.v1.endpoints.topology import discover_device_topology
+            await discover_device_topology(device.network_id, device, db, current_user["user_id"])
+            print(f"[FULL REFRESH] Topology discovery completed successfully")
+        except Exception as topo_error:
+            print(f"[FULL REFRESH] Topology discovery failed: {str(topo_error)}")
+            # Don't fail the entire refresh if topology discovery fails
+            # The basic device info is still updated
+
+        # Step 3: Get updated device information
+        print(f"[FULL REFRESH] Step 3: Fetching updated device information")
+        
+        # Refresh the device object to get latest data
+        db.refresh(device)
+        
+        # Get topology information
+        from app.models.topology import DeviceTopology
+        device_topology = db.query(DeviceTopology).filter(DeviceTopology.device_id == device.id).first()
+
+        # Prepare response with comprehensive device information
+        response_data = {
+            "message": f"Device {device.name} refreshed successfully",
+            "status": "completed",
+            "device_id": device_id,
+            "device_info": {
+                "name": device.name,
+                "ip": device.ip,
+                "type": device.type,
+                "platform": device.platform,
+                "ping_status": device.ping_status,
+                "snmp_status": device.snmp_status,
+                "is_active": device.is_active,
+                "os_version": device.os_version,
+                "serial_number": device.serial_number,
+                "location": device.location,
+                "updated_at": device.updated_at.isoformat() if device.updated_at else None
+            },
+            "mib2_info": {
+                "hostname": device_topology.hostname if device_topology else "Not available",
+                "description": f"{device_topology.vendor or 'Unknown'} {device_topology.model or 'Unknown'}" if device_topology and (device_topology.vendor or device_topology.model) else "Not available",
+                "vendor": device_topology.vendor if device_topology else "Not available",
+                "model": device_topology.model if device_topology else "Not available",
+                "uptime": device_topology.uptime if device_topology else "Not available",
+                "last_polled": device_topology.last_polled.isoformat() if device_topology and device_topology.last_polled else None
+            } if device_topology else {
+                "hostname": "Not available",
+                "description": "Not available",
+                "vendor": "Not available",
+                "model": "Not available",
+                "uptime": "Not available",
+                "last_polled": None
+            }
+        }
+
+        print(f"[FULL REFRESH] Enhanced refresh completed successfully for device {device.name}")
+        return response_data
+
+    except Exception as e:
+        print(f"[FULL REFRESH] Error in refresh_device_full: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Enhanced device refresh failed: {str(e)}")

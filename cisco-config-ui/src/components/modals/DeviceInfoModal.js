@@ -217,43 +217,37 @@ const DeviceInfoModal = React.memo(({
         )}
       </DialogContent>
 
-      <DialogActions sx={{
-        background: 'rgba(0, 0, 0, 0.3)',
-        borderTop: '1px solid rgba(0, 255, 0, 0.2)',
-        p: 2
-      }}>
-        <Button
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 pt-4 border-t border-[#00ff00]/20">
+        <button
           onClick={onRefresh}
           disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} /> : null}
-          sx={{
-            background: 'linear-gradient(90deg, #2196f3 0%, #1976d2 100%)',
-            color: '#ffffff',
-            fontWeight: 'bold',
-            mr: 1,
-            '&:hover': {
-              background: 'linear-gradient(90deg, #1976d2 0%, #1565c0 100%)',
-              boxShadow: '0 0 10px rgba(33, 150, 243, 0.3)'
-            }
-          }}
+          className={`btn-primary px-6 py-2 flex items-center gap-2 ${
+            loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#00ff00]/20'
+          }`}
         >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </Button>
-        <Button
+          {loading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              Refreshing...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh Device
+            </>
+          )}
+        </button>
+        <button
           onClick={onClose}
-          sx={{
-            background: 'linear-gradient(90deg, #00ff00 0%, #00cc00 100%)',
-            color: '#000000',
-            fontWeight: 'bold',
-            '&:hover': {
-              background: 'linear-gradient(90deg, #00cc00 0%, #009900 100%)',
-              boxShadow: '0 0 10px rgba(0, 255, 0, 0.3)'
-            }
-          }}
+          className="btn-secondary px-6 py-2"
+          disabled={loading}
         >
           Close
-        </Button>
-      </DialogActions>
+        </button>
+      </div>
     </Dialog>
   );
 });

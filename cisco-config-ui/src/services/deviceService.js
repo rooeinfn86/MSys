@@ -19,37 +19,43 @@ export const deviceService = {
   // Refresh a single device using agent discovery
   async refreshDevice(deviceId, networkId) {
     try {
-      console.log("🔄 Refreshing device:", deviceId, "in network:", networkId);
-      
-      // First, get the device to find its agent
-      const deviceResponse = await api.get(`/api/v1/devices/${deviceId}`);
-      const device = deviceResponse.data;
-      
-      if (!device) {
-        throw new Error('Device not found');
-      }
-      
-      // Get the agent for this device's network
-      const agentsResponse = await api.get('/api/v1/agents/all');
-      const agents = agentsResponse.data;
-      
-      // Find an agent that can handle this network
-      const agent = agents.find(a => a.organization_id === device.organization_id);
-      
-      if (!agent) {
-        throw new Error('No agent available for this device');
-      }
-      
-      // Trigger device refresh through the agent
-      const refreshResponse = await api.post(`/api/v1/agents/${agent.id}/device/${deviceId}/refresh`, {
-        network_id: networkId,
-        device_id: deviceId
-      });
-      
-      console.log("✅ Device refresh initiated:", refreshResponse.data);
+      console.log("🔄 RefreshDevice: Starting refresh for device:", deviceId, "in network:", networkId);
+      console.log("🔄 RefreshDevice: Calling endpoint:", `/api/v1/devices/status/${deviceId}/refresh-agent`);
+      const refreshResponse = await api.post(`/api/v1/devices/status/${deviceId}/refresh-agent`);
+      console.log("✅ RefreshDevice: Response received:", refreshResponse);
+      console.log("✅ RefreshDevice: Response data:", refreshResponse.data);
       return refreshResponse.data;
     } catch (err) {
-      console.error("❌ Failed to refresh device:", err);
+      console.error("❌ RefreshDevice: Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        fullError: err
+      });
+      throw err;
+    }
+  },
+
+  // Enhanced device refresh that collects MIB-2 information
+  async refreshDeviceFull(deviceId, networkId) {
+    try {
+      console.log("🚀 RefreshDeviceFull: Starting enhanced refresh for device:", deviceId, "in network:", networkId);
+      console.log("🚀 RefreshDeviceFull: Calling enhanced endpoint:", `/api/v1/devices/${deviceId}/refresh-full`);
+      
+      const refreshResponse = await api.post(`/api/v1/devices/${deviceId}/refresh-full`);
+      console.log("✅ RefreshDeviceFull: Enhanced response received:", refreshResponse);
+      console.log("✅ RefreshDeviceFull: Enhanced response data:", refreshResponse.data);
+      
+      return refreshResponse.data;
+    } catch (err) {
+      console.error("❌ RefreshDeviceFull: Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        fullError: err
+      });
       throw err;
     }
   },
@@ -59,19 +65,41 @@ export const deviceService = {
     try {
       console.log("📋 Fetching device info:", deviceId, "in network:", networkId);
       
-      // Get the device details
-      const deviceResponse = await api.get(`/api/v1/devices/${deviceId}`);
-      const device = deviceResponse.data;
+      // Get all devices for the network and find the specific device
+      const devicesResponse = await api.get(`/api/v1/devices/?network_id=${networkId}`);
+      const devices = devicesResponse.data;
       
+      console.log("📋 Raw devices response:", devices);
+      
+      if (!devices || devices.length === 0) {
+        throw new Error('No devices found in network');
+      }
+      
+      // Find the specific device by ID
+      const device = devices.find(d => d.id == deviceId);
       if (!device) {
         throw new Error('Device not found');
       }
+      
+      console.log("📋 Found device:", device);
+      console.log("📋 Device status fields:", {
+        ping_status: device.ping_status,
+        snmp_status: device.snmp_status,
+        is_active: device.is_active,
+        updated_at: device.updated_at
+      });
       
       // Get device topology information if available
       let topologyInfo = null;
       try {
         const topologyResponse = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}/info`);
         topologyInfo = topologyResponse.data;
+        console.log("📋 Topology info:", topologyInfo);
+        console.log("📋 Topology status fields:", {
+          ping_status: topologyInfo?.ping_status,
+          snmp_status: topologyInfo?.snmp_status,
+          is_active: topologyInfo?.is_active
+        });
       } catch (topoErr) {
         console.log("Topology info not available:", topoErr);
         // This is not critical, so we continue
@@ -80,10 +108,32 @@ export const deviceService = {
       // Combine device and topology information
       const deviceInfo = {
         ...device,
-        agent_discovered_info: topologyInfo || {},
+        // Map backend fields to modal-expected fields
+        device_name: device.name,
+        device_ip: device.ip,
+        device_type: device.type,
+        device_platform: device.platform,
+        // Keep original fields for backward compatibility
+        name: device.name,
+        ip: device.ip,
+        type: device.type,
+        platform: device.platform,
+        // Use device status fields (these are correct and updated)
+        ping_status: device.ping_status,
+        snmp_status: device.snmp_status,
+        is_active: device.is_active,
+        // Add agent discovered info (but don't override status fields)
+        agent_discovered_info: {
+          ...topologyInfo,
+          // Ensure status fields come from device data, not topology
+          ping_status: device.ping_status,
+          snmp_status: device.snmp_status,
+          is_active: device.is_active
+        },
         last_updated: device.updated_at || device.created_at
       };
       
+      console.log("📋 Final combined device info:", deviceInfo);
       console.log("✅ Device info fetched:", deviceInfo);
       return deviceInfo;
     } catch (err) {
