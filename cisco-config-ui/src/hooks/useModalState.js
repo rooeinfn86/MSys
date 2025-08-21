@@ -141,42 +141,42 @@ const useModalState = (networkId) => {
 
       console.log('🚀 Triggering enhanced device refresh for device:', deviceId);
       
-      // Use the enhanced refresh method that collects MIB-2 information
+      // Use the enhanced refresh method that queues discovery for agent
       const refreshResult = await deviceService.refreshDeviceFull(deviceId, networkIdNum);
-      console.log('✅ Enhanced refresh completed:', refreshResult);
+      console.log('✅ Enhanced refresh queued:', refreshResult);
       
-      if (refreshResult.status === 'completed') {
-        // Update the modal with the comprehensive information returned
-        const updatedDeviceInfo = {
-          ...deviceInfoModal.data,
-          // Update basic device info
-          ...refreshResult.device_info,
-          // Update MIB-2 information
-          agent_discovered_info: {
-            hostname: refreshResult.mib2_info.hostname,
-            description: refreshResult.mib2_info.description,
-            vendor: refreshResult.mib2_info.vendor,
-            model: refreshResult.mib2_info.model,
-            uptime: refreshResult.mib2_info.uptime,
-            last_polled: refreshResult.mib2_info.last_polled,
-            // Keep existing status fields
-            ping_status: refreshResult.device_info.ping_status,
-            snmp_status: refreshResult.device_info.snmp_status,
-            is_active: refreshResult.device_info.is_active
-          }
-        };
+      if (refreshResult.status === 'queued') {
+        console.log('⏳ Discovery queued for agent, waiting for completion...');
         
-        setDeviceInfoModal(prev => ({ 
-          ...prev, 
-          loading: false, 
-          data: updatedDeviceInfo 
-        }));
+        // Wait a bit for the agent to process the request
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
-        console.log('✅ Device info modal updated with enhanced refresh data');
-      } else {
-        console.error('❌ Enhanced refresh failed:', refreshResult.error);
+        // Fetch updated device information from database
+        console.log('📋 Fetching updated device info after refresh...');
+        const updatedDeviceInfo = await deviceService.getDeviceInfo(deviceId, networkIdNum);
+        
+        if (updatedDeviceInfo) {
+          console.log('✅ Updated device info fetched:', updatedDeviceInfo);
+          
+          // Update the modal with fresh data from database
+          setDeviceInfoModal(prev => ({ 
+            ...prev, 
+            loading: false, 
+            data: updatedDeviceInfo 
+          }));
+          
+          console.log('✅ Device info modal updated with fresh data from database');
+        } else {
+          console.error('❌ Failed to fetch updated device info');
+          setDeviceInfoModal(prev => ({ ...prev, loading: false }));
+        }
+      } else if (refreshResult.status === 'completed') {
+        // Handle direct completion (for public IPs)
+        console.log('✅ Refresh completed directly:', refreshResult);
         setDeviceInfoModal(prev => ({ ...prev, loading: false }));
-        // You could show an error notification here
+      } else {
+        console.error('❌ Enhanced refresh failed:', refreshResult.error || 'Unknown error');
+        setDeviceInfoModal(prev => ({ ...prev, loading: false }));
       }
       
     } catch (err) {

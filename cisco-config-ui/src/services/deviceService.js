@@ -92,13 +92,14 @@ export const deviceService = {
       // Get device topology information if available
       let topologyInfo = null;
       try {
-        const topologyResponse = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}/info`);
+        const topologyResponse = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}/topology`);
         topologyInfo = topologyResponse.data;
         console.log("📋 Topology info:", topologyInfo);
-        console.log("📋 Topology status fields:", {
-          ping_status: topologyInfo?.ping_status,
-          snmp_status: topologyInfo?.snmp_status,
-          is_active: topologyInfo?.is_active
+        console.log("📋 Topology MIB-2 fields:", {
+          hostname: topologyInfo?.hostname,
+          vendor: topologyInfo?.vendor,
+          model: topologyInfo?.model,
+          uptime: topologyInfo?.uptime
         });
       } catch (topoErr) {
         console.log("Topology info not available:", topoErr);
