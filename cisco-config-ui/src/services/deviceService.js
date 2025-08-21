@@ -16,6 +16,82 @@ export const deviceService = {
     }
   },
 
+  // Refresh a single device using agent discovery
+  async refreshDevice(deviceId, networkId) {
+    try {
+      console.log("🔄 Refreshing device:", deviceId, "in network:", networkId);
+      
+      // First, get the device to find its agent
+      const deviceResponse = await api.get(`/api/v1/devices/${deviceId}`);
+      const device = deviceResponse.data;
+      
+      if (!device) {
+        throw new Error('Device not found');
+      }
+      
+      // Get the agent for this device's network
+      const agentsResponse = await api.get('/api/v1/agents/all');
+      const agents = agentsResponse.data;
+      
+      // Find an agent that can handle this network
+      const agent = agents.find(a => a.organization_id === device.organization_id);
+      
+      if (!agent) {
+        throw new Error('No agent available for this device');
+      }
+      
+      // Trigger device refresh through the agent
+      const refreshResponse = await api.post(`/api/v1/agents/${agent.id}/device/${deviceId}/refresh`, {
+        network_id: networkId,
+        device_id: deviceId
+      });
+      
+      console.log("✅ Device refresh initiated:", refreshResponse.data);
+      return refreshResponse.data;
+    } catch (err) {
+      console.error("❌ Failed to refresh device:", err);
+      throw err;
+    }
+  },
+
+  // Get detailed device information
+  async getDeviceInfo(deviceId, networkId) {
+    try {
+      console.log("📋 Fetching device info:", deviceId, "in network:", networkId);
+      
+      // Get the device details
+      const deviceResponse = await api.get(`/api/v1/devices/${deviceId}`);
+      const device = deviceResponse.data;
+      
+      if (!device) {
+        throw new Error('Device not found');
+      }
+      
+      // Get device topology information if available
+      let topologyInfo = null;
+      try {
+        const topologyResponse = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}/info`);
+        topologyInfo = topologyResponse.data;
+      } catch (topoErr) {
+        console.log("Topology info not available:", topoErr);
+        // This is not critical, so we continue
+      }
+      
+      // Combine device and topology information
+      const deviceInfo = {
+        ...device,
+        agent_discovered_info: topologyInfo || {},
+        last_updated: device.updated_at || device.created_at
+      };
+      
+      console.log("✅ Device info fetched:", deviceInfo);
+      return deviceInfo;
+    } catch (err) {
+      console.error("❌ Failed to fetch device info:", err);
+      throw err;
+    }
+  },
+
   // Add/Edit device with discovery
   async addEditDevice(deviceData, editingDeviceId = null) {
     try {

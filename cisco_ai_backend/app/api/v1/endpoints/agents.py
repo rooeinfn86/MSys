@@ -12,6 +12,7 @@ from sqlalchemy import and_
 import json
 import os
 import re
+import uuid
 
 from app.core.dependencies import get_current_user
 from app.api.deps import get_db
@@ -2935,14 +2936,119 @@ async def get_agent_audit_logs(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.id == current_user["user_id"]).first()
-    agent = db.query(Agent).filter(Agent.id == agent_id).first()
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    if user.role not in ["superadmin", "company_admin", "full_control"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    logs = db.query(AgentTokenAuditLog).filter(AgentTokenAuditLog.agent_id == agent_id).order_by(AgentTokenAuditLog.timestamp.desc()).all()
-    return logs 
+    """Get audit logs for an agent's token operations."""
+    try:
+        # Get user from database
+        user = db.query(User).filter(User.id == current_user["user_id"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get the agent
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Check access permissions
+        if user.role != "superadmin":
+            if user.company_id and agent.company_id != user.company_id:
+                raise HTTPException(status_code=403, detail="No access to this agent")
+            elif not user.company_id and agent.organization_id:
+                # Check organization access
+                if not validate_user_organization_access(user, agent.organization_id, db):
+                    raise HTTPException(status_code=403, detail="No access to this agent")
+        
+        # Get audit logs
+        audit_logs = db.query(AgentTokenAuditLog).filter(
+            AgentTokenAuditLog.agent_id == agent_id
+        ).order_by(AgentTokenAuditLog.timestamp.desc()).all()
+        
+        return audit_logs
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching audit logs: {str(e)}")
+
+
+@router.post("/{agent_id}/device/{device_id}/refresh")
+async def refresh_device_through_agent(
+    agent_id: int,
+    device_id: int,
+    refresh_request: dict = Body(...),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Trigger a device refresh through an agent using the discovery system."""
+    try:
+        # Get user from database
+        user = db.query(User).filter(User.id == current_user["user_id"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get the agent
+        agent = db.query(Agent).filter(Agent.id == agent_id).first()
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Get the device
+        device = db.query(Device).filter(Device.id == device_id).first()
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+        
+        # Check access permissions
+        if user.role != "superadmin":
+            if user.company_id and agent.company_id != user.company_id:
+                raise HTTPException(status_code=403, detail="No access to this agent")
+            elif not user.company_id and agent.organization_id:
+                # Check organization access
+                if not validate_user_organization_access(user, agent.organization_id, db):
+                    raise HTTPException(status_code=403, detail="No access to this agent")
+        
+        # Check if agent is online
+        if agent.status != "online":
+            raise HTTPException(status_code=400, detail="Agent is not online")
+        
+        # Create a unique session ID for this refresh request
+        session_id = str(uuid.uuid4())
+        
+        # Queue the refresh request for the agent
+        # The agent will poll for this request and execute the discovery
+        pending_discovery_requests[session_id] = {
+            'agent_id': agent_id,
+            'request': {
+                'discovery_type': 'device_refresh',
+                'device_id': device_id,
+                'network_id': device.network_id,
+                'device_ip': device.ip,
+                'username': device.username,
+                'password': device.password,
+                'snmp_version': getattr(device, 'snmp_version', 'v2c'),
+                'community': getattr(device, 'community', 'public'),
+                'snmp_username': getattr(device, 'snmp_username', None),
+                'auth_protocol': getattr(device, 'auth_protocol', None),
+                'auth_password': getattr(device, 'auth_password', None),
+                'priv_protocol': getattr(device, 'priv_protocol', None),
+                'priv_password': getattr(device, 'priv_password', None),
+                'snmp_port': getattr(device, 'snmp_port', 161),
+                'discovery_method': 'refresh'
+            }
+        }
+        
+        logger.info(f"🔍 Device refresh request queued for agent {agent_id}, device {device_id}, session {session_id}")
+        
+        return {
+            "message": "Device refresh request queued successfully",
+            "session_id": session_id,
+            "agent_id": agent_id,
+            "device_id": device_id,
+            "status": "queued"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error queuing device refresh request: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error queuing device refresh request: {str(e)}")
 
 
 @router.get("/fix-db-schema", response_model=dict)
