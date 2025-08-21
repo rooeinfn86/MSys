@@ -100,7 +100,7 @@ def log_agent_token_event(db, agent_id, event, user_id=None, ip_address=None, de
     db.commit()
 
 
-@router.post("/register", response_model=AgentResponse)
+@router.post("/register")
 async def register_agent(
     agent_data: AgentRegistration,
     current_user: dict = Depends(get_current_user),
@@ -425,7 +425,7 @@ async def test_agents_auth_debug_get(
     return {"status": "success", "user": current_user}
 
 
-@router.get("/all", response_model=List[AgentResponse])
+@router.get("/all")
 async def get_agents(
     organization_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
@@ -1945,8 +1945,8 @@ Check the web interface for agent status and logs.
     )
 
 
-@router.get("/{agent_id}", response_model=AgentResponse)
-async def get_agent(
+@router.get("/{agent_id}")
+async def get_agent_by_id(
     agent_id: int,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
