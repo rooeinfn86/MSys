@@ -2087,7 +2087,7 @@ async def refresh_device_status_agent(
 async def refresh_device_full(
     device_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """Enhanced device refresh that collects MIB-2 information using auto discovery"""
     try:
@@ -2098,8 +2098,14 @@ async def refresh_device_full(
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
 
-        # Check network access
-        network = check_network_access(db, current_user, device.network_id)
+        # Check network access - current_user is a dict, not User object
+        # First get the full user object from the database
+        user = db.query(User).filter(User.id == current_user["user_id"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        # Now check network access with the full user object
+        network = check_network_access(db, user, device.network_id)
         if not network:
             raise HTTPException(status_code=403, detail="No access to this network")
 
