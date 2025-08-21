@@ -2228,17 +2228,86 @@ async def refresh_device_full(
 
         # Step 1: Run device discovery (like scan_single_device)
         print(f"[FULL REFRESH] Step 1: Running device discovery for {device.ip}")
-        discovery_result = await scan_single_device(
-            ip_address=device.ip,
-            username=device.username,
-            password=device.password,
-            device_type=device.type or 'cisco_ios',
-            network_id=device.network_id,
-            company_id=device.company_id,
-            db=db,
-            owner_id=device.owner_id,
-            snmp_config=snmp_config
+        
+        # Check if this is a private network IP that Railway can't reach directly
+        is_private_ip = (
+            device.ip.startswith('192.168.') or 
+            device.ip.startswith('10.') or 
+            device.ip.startswith('172.') or
+            device.ip.startswith('169.254.')
         )
+        
+        if is_private_ip:
+            print(f"[FULL REFRESH] Device {device.ip} is on private network - using agent for discovery")
+            
+            # Get available agents for this network
+            from app.api.v1.endpoints.agents import get_available_agents_for_network
+            agents_response = await get_available_agents_for_network(device.network_id, current_user, db)
+            agents = agents_response.get("available_agents", [])
+            
+            if not agents:
+                return {
+                    "message": "No agents available for private network discovery",
+                    "status": "failed",
+                    "device_id": device_id,
+                    "error": "No agents available"
+                }
+            
+            # Use the first available agent
+            agent = agents[0]
+            agent_id = agent['id']
+            
+            # Create a session ID for tracking this discovery
+            import uuid
+            session_id = f"full_refresh_{uuid.uuid4().hex[:8]}"
+            
+            # Prepare discovery request for agent
+            discovery_request = {
+                "type": "full_device_discovery",
+                "session_id": session_id,
+                "network_id": device.network_id,
+                "device_id": device_id,
+                "device_ip": device.ip,
+                "snmp_config": snmp_config,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            # Store discovery request for agent to pick up
+            try:
+                from app.api.v1.endpoints.agents import pending_discovery_requests
+                pending_discovery_requests[agent_id] = discovery_request
+                print(f"[FULL REFRESH] Discovery request queued for agent {agent_id}, session {session_id}")
+                
+                return {
+                    "message": f"Full device discovery queued for agent {agent_id}",
+                    "status": "queued",
+                    "session_id": session_id,
+                    "agent_id": agent_id,
+                    "device_id": device_id,
+                    "note": "Discovery is running on agent. Check back in a few moments for results."
+                }
+                
+            except Exception as e:
+                print(f"[FULL REFRESH] Error queuing agent discovery request: {str(e)}")
+                return {
+                    "message": "Failed to queue discovery request",
+                    "status": "failed",
+                    "device_id": device_id,
+                    "error": str(e)
+                }
+        else:
+            # For public IPs, run the full discovery process directly
+            discovery_result = await scan_single_device(
+                ip_address=device.ip,
+                username=device.username,
+                password=device.password,
+                device_type=device.type or 'cisco_ios',
+                network_id=device.network_id,
+                company_id=device.company_id,
+                db=db,
+                owner_id=device.owner_id,
+                snmp_config=snmp_config
+            )
 
         if discovery_result["status"] != "success":
             print(f"[FULL REFRESH] Device discovery failed: {discovery_result['message']}")
@@ -2313,3 +2382,83 @@ async def refresh_device_full(
     except Exception as e:
         print(f"[FULL REFRESH] Error in refresh_device_full: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Enhanced device refresh failed: {str(e)}")
+
+@router.get("/{device_id}/refresh-full/status/{session_id}")
+async def check_refresh_status(
+    device_id: int,
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Check the status of a queued device refresh discovery"""
+    try:
+        # Get device and verify access
+        device = db.query(Device).filter(Device.id == device_id).first()
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        # Check network access
+        user = db.query(User).filter(User.id == current_user["user_id"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        network = check_network_access(db, user, device.network_id)
+        if not network:
+            raise HTTPException(status_code=403, detail="No access to this network")
+
+        # Check if discovery has completed by looking for updated device info
+        from app.models.topology import DeviceTopology
+        device_topology = db.query(DeviceTopology).filter(DeviceTopology.device_id == device.id).first()
+        
+        # Check if device has been recently updated (within last 5 minutes)
+        recent_update = device.updated_at and (datetime.utcnow() - device.updated_at).total_seconds() < 300
+        
+        if recent_update and device_topology and device_topology.last_polled:
+            # Discovery appears to have completed
+            return {
+                "status": "completed",
+                "device_id": device_id,
+                "session_id": session_id,
+                "message": "Device discovery completed successfully",
+                "device_info": {
+                    "name": device.name,
+                    "ip": device.ip,
+                    "type": device.type,
+                    "platform": device.platform,
+                    "ping_status": device.ping_status,
+                    "snmp_status": device.snmp_status,
+                    "is_active": device.is_active,
+                    "os_version": device.os_version,
+                    "serial_number": device.serial_number,
+                    "location": device.location,
+                    "updated_at": device.updated_at.isoformat() if device.updated_at else None
+                },
+                "mib2_info": {
+                    "hostname": device_topology.hostname if device_topology else "Not available",
+                    "description": f"{device_topology.vendor or 'Unknown'} {device_topology.model or 'Unknown'}" if device_topology and (device_topology.vendor or device_topology.model) else "Not available",
+                    "vendor": device_topology.vendor if device_topology else "Not available",
+                    "model": device_topology.model if device_topology else "Not available",
+                    "uptime": device_topology.uptime if device_topology else "Not available",
+                    "last_polled": device_topology.last_polled.isoformat() if device_topology and device_topology.last_polled else None
+                } if device_topology else {
+                    "hostname": "Not available",
+                    "description": "Not available",
+                    "vendor": "Not available",
+                    "model": "Not available",
+                    "uptime": "Not available",
+                    "last_polled": None
+                }
+            }
+        else:
+            # Discovery still in progress
+            return {
+                "status": "in_progress",
+                "device_id": device_id,
+                "session_id": session_id,
+                "message": "Device discovery is still in progress",
+                "note": "Check back in a few moments for results"
+            }
+
+    except Exception as e:
+        print(f"[REFRESH STATUS] Error checking refresh status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to check refresh status: {str(e)}")
