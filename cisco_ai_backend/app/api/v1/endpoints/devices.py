@@ -92,6 +92,12 @@ def check_engineer_permissions(current_user: dict, db: Session) -> Optional[User
 def ping_device(ip: str) -> bool:
     try:
         system = platform.system().lower()
+        print(f"[PING DEBUG] Detected platform: {system}")
+        
+        # Try multiple ping approaches
+        ping_success = False
+        
+        # Approach 1: Try platform-specific ping
         if system == "windows":
             # On Windows, use the full path to ping or try to find it
             ping_path = shutil.which("ping")
@@ -100,34 +106,64 @@ def ping_device(ip: str) -> bool:
             else:
                 # Fallback to system32 ping
                 cmd = ["C:\\Windows\\System32\\ping.exe", "-n", "1", "-w", "1000", ip]
-        else:
-            cmd = ["ping", "-c", "1", "-W", "1", ip]
-
-        print(f"[PING] Running command: {' '.join(cmd)}")
-        
-        # Use shell=True on Windows to ensure command execution
-        if system == "windows":
-            output = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
-        else:
-            output = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
-        print(f"[PING] {ip} -> {'✅' if output.returncode == 0 else '❌'} (return code: {output.returncode})")
-        return output.returncode == 0
-    except Exception as e:
-        print(f"[PING ERROR] {ip}: {e}")
-        # On Windows, if ping fails, try a simple socket connection as fallback
-        if system == "windows":
+            print(f"[PING] Trying Windows ping: {' '.join(cmd)}")
             try:
-                import socket
+                output = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+                ping_success = output.returncode == 0
+                print(f"[PING] Windows ping result: {'✅' if ping_success else '❌'} (return code: {output.returncode})")
+            except Exception as e:
+                print(f"[PING] Windows ping failed: {e}")
+                ping_success = False
+        else:
+            # Linux/Unix ping
+            cmd = ["ping", "-c", "1", "-W", "1", ip]
+            print(f"[PING] Trying Linux ping: {' '.join(cmd)}")
+            try:
+                output = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                ping_success = output.returncode == 0
+                print(f"[PING] Linux ping result: {'✅' if ping_success else '❌'} (return code: {output.returncode})")
+            except Exception as e:
+                print(f"[PING] Linux ping failed: {e}")
+                ping_success = False
+        
+        # Approach 2: If ping failed, try socket connection as fallback
+        if not ping_success:
+            print(f"[PING] Ping failed, trying socket fallback...")
+            try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)
-                result = sock.connect_ex((ip, 22))  # Try SSH port as fallback
+                sock.settimeout(3)
+                result = sock.connect_ex((ip, 22))  # Try SSH port
                 sock.close()
-                print(f"[PING FALLBACK] {ip} -> {'✅' if result == 0 else '❌'} (socket test)")
-                return result == 0
+                ping_success = (result == 0)
+                print(f"[PING FALLBACK] Socket test to {ip}:22 -> {'✅' if ping_success else '❌'}")
             except Exception as fallback_error:
                 print(f"[PING FALLBACK ERROR] {ip}: {fallback_error}")
-                return False
+                ping_success = False
+        
+        # Approach 3: Try common ports if socket to SSH failed
+        if not ping_success:
+            print(f"[PING] Socket fallback failed, trying common ports...")
+            common_ports = [80, 443, 23, 22, 161]  # HTTP, HTTPS, Telnet, SSH, SNMP
+            for port in common_ports:
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(2)
+                    result = sock.connect_ex((ip, port))
+                    sock.close()
+                    if result == 0:
+                        ping_success = True
+                        print(f"[PING FALLBACK] Port {port} test -> ✅ (Device reachable on port {port})")
+                        break
+                except Exception as port_error:
+                    print(f"[PING FALLBACK] Port {port} test failed: {port_error}")
+                    continue
+        
+        print(f"[PING FINAL] {ip} -> {'✅ REACHABLE' if ping_success else '❌ UNREACHABLE'}")
+        return ping_success
+        
+    except Exception as e:
+        print(f"[PING ERROR] {ip}: {e}")
         return False
 
 # Cache for device status
@@ -158,6 +194,35 @@ class DeviceStatusCache:
 
 # Initialize the cache
 device_status_cache = DeviceStatusCache()
+
+@router.get("/debug/platform")
+async def debug_platform():
+    """Debug endpoint to check platform detection and ping functionality"""
+    try:
+        system = platform.system()
+        release = platform.release()
+        version = platform.version()
+        machine = platform.machine()
+        
+        # Test ping function
+        test_ip = "8.8.8.8"  # Google DNS
+        ping_result = ping_device(test_ip)
+        
+        return {
+            "platform_info": {
+                "system": system,
+                "release": release,
+                "version": version,
+                "machine": machine,
+                "system_lower": system.lower()
+            },
+            "ping_test": {
+                "test_ip": test_ip,
+                "result": ping_result
+            }
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @router.get("/", response_model=List[DeviceSchema])
 async def get_devices(
