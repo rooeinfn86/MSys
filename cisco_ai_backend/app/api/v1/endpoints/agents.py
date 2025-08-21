@@ -3434,6 +3434,104 @@ async def update_discovery_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating discovery status: {str(e)}")
 
+@router.post("/{agent_id}/full-device-discovery-results")
+async def report_full_device_discovery_results(
+    agent_id: int,
+    discovery_results: dict = Body(...),
+    agent_token: str = Header(..., alias="X-Agent-Token"),
+    db: Session = Depends(get_db)
+):
+    """Report results from full device discovery (including MIB-2 information)."""
+    logger = logging.getLogger(__name__)
+    try:
+        # Validate agent token
+        agent = db.query(Agent).filter(Agent.agent_token == agent_token).first()
+        if not agent or agent.id != agent_id:
+            raise HTTPException(status_code=401, detail="Invalid agent token")
+        
+        session_id = discovery_results.get("session_id")
+        device_id = discovery_results.get("device_id")
+        device_ip = discovery_results.get("device_ip")
+        status = discovery_results.get("status")
+        
+        logger.info(f"Agent {agent_id} full device discovery results: session={session_id}, device={device_id}, status={status}")
+        
+        if status == "success":
+            # Update device information in database
+            device = db.query(Device).filter(Device.id == device_id).first()
+            if device:
+                # Update basic device info
+                if discovery_results.get("hostname"):
+                    device.name = discovery_results["hostname"]
+                if discovery_results.get("model"):
+                    device.type = discovery_results["model"]
+                if discovery_results.get("platform"):
+                    device.platform = discovery_results["platform"]
+                if discovery_results.get("os_version"):
+                    device.os_version = discovery_results["os_version"]
+                if discovery_results.get("serial_number"):
+                    device.serial_number = discovery_results["serial_number"]
+                
+                # Update status
+                device.ping_status = discovery_results.get("ping_status", True)
+                device.snmp_status = discovery_results.get("snmp_status", True)
+                device.is_active = True
+                device.updated_at = datetime.utcnow()
+                
+                # Update or create device topology with MIB-2 information
+                from app.models.topology import DeviceTopology
+                device_topology = db.query(DeviceTopology).filter(DeviceTopology.device_id == device.id).first()
+                
+                if not device_topology:
+                    device_topology = DeviceTopology(
+                        device_id=device.id,
+                        network_id=device.network_id
+                    )
+                
+                # Update MIB-2 information
+                if discovery_results.get("mib2_info"):
+                    mib2 = discovery_results["mib2_info"]
+                    device_topology.hostname = mib2.get("hostname")
+                    device_topology.vendor = mib2.get("vendor")
+                    device_topology.model = mib2.get("model")
+                    device_topology.uptime = mib2.get("uptime")
+                    device_topology.last_polled = datetime.utcnow()
+                
+                db.add(device)
+                db.add(device_topology)
+                db.commit()
+                
+                logger.info(f"Successfully updated device {device_id} with discovery results")
+                
+                return {
+                    "status": "success",
+                    "message": f"Device {device_id} updated successfully",
+                    "device_id": device_id,
+                    "session_id": session_id
+                }
+            else:
+                logger.error(f"Device {device_id} not found in database")
+                return {
+                    "status": "error",
+                    "message": f"Device {device_id} not found",
+                    "device_id": device_id,
+                    "session_id": session_id
+                }
+        else:
+            # Discovery failed
+            error_message = discovery_results.get("error", "Unknown error")
+            logger.error(f"Full device discovery failed for device {device_id}: {error_message}")
+            
+            return {
+                "status": "error",
+                "message": f"Discovery failed: {error_message}",
+                "device_id": device_id,
+                "session_id": session_id
+            }
+        
+    except Exception as e:
+        logger.error(f"Error processing full device discovery results: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing discovery results: {str(e)}")
 
 @router.post("/{agent_id}/discovery-progress")
 async def update_discovery_progress(

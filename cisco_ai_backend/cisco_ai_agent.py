@@ -224,6 +224,8 @@ class CiscoAIAgent:
                         self.handle_enhanced_discovery_request(request)
                     elif request.get('type') == 'status_test':
                         self.handle_status_test_request(request)
+                    elif request.get('type') == 'full_device_discovery':
+                        self.handle_full_device_discovery_request(request)
                     
         except Exception as e:
             logger.error(f"Error checking for discovery requests: {e}")
@@ -271,6 +273,318 @@ class CiscoAIAgent:
             
         except Exception as e:
             logger.error(f"Error handling status test request: {e}")
+    
+    def handle_full_device_discovery_request(self, request_data: Dict):
+        """Handle full device discovery request including MIB-2 information"""
+        try:
+            session_id = request_data.get('session_id')
+            device_id = request_data.get('device_id')
+            device_ip = request_data.get('device_ip')
+            snmp_config = request_data.get('snmp_config', {})
+            
+            logger.info(f"Received full device discovery request: session_id={session_id}, device_id={device_id}, device_ip={device_ip}")
+            
+            # Start full device discovery in background thread
+            discovery_thread = threading.Thread(
+                target=self.perform_full_device_discovery,
+                args=(session_id, device_id, device_ip, snmp_config),
+                daemon=True
+            )
+            discovery_thread.start()
+            
+        except Exception as e:
+            logger.error(f"Error handling full device discovery request: {e}")
+    
+    def perform_full_device_discovery(self, session_id: str, device_id: int, device_ip: str, snmp_config: Dict):
+        """Perform full device discovery including MIB-2 information collection"""
+        try:
+            logger.info(f"[{session_id}] Starting full device discovery for {device_ip}")
+            
+            # Step 1: Test device connectivity (ping)
+            ping_success = self.test_device_connectivity(device_ip)
+            
+            if not ping_success:
+                logger.warning(f"[{session_id}] Device {device_ip} is not reachable")
+                self.report_full_discovery_results(session_id, device_id, device_ip, "failed", error="Device unreachable")
+                return
+            
+            # Step 2: Test SNMP connectivity
+            snmp_success, snmp_info = self.test_snmp_connectivity(device_ip, snmp_config)
+            
+            if not snmp_success:
+                logger.warning(f"[{session_id}] SNMP test failed for {device_ip}: {snmp_info}")
+                self.report_full_discovery_results(session_id, device_id, device_ip, "failed", error=f"SNMP test failed: {snmp_info}")
+                return
+            
+            # Step 3: Collect MIB-2 information
+            mib2_info = self.collect_mib2_information(device_ip, snmp_config)
+            
+            # Step 4: Collect basic device information
+            device_info = self.collect_device_information(device_ip, snmp_config)
+            
+            # Combine all information
+            discovery_results = {
+                "status": "success",
+                "session_id": session_id,
+                "device_id": device_id,
+                "device_ip": device_ip,
+                "ping_status": True,
+                "snmp_status": True,
+                "hostname": device_info.get('hostname', 'Unknown'),
+                "model": device_info.get('model', 'Unknown'),
+                "platform": device_info.get('platform', 'Unknown'),
+                "os_version": device_info.get('os_version', 'Unknown'),
+                "serial_number": device_info.get('serial_number', 'Unknown'),
+                "mib2_info": mib2_info
+            }
+            
+            logger.info(f"[{session_id}] Full device discovery completed successfully for {device_ip}")
+            self.report_full_discovery_results(session_id, device_id, device_ip, "success", discovery_results)
+            
+        except Exception as e:
+            logger.error(f"[{session_id}] Error in full device discovery: {str(e)}")
+            self.report_full_discovery_results(session_id, device_id, device_ip, "failed", error=str(e))
+    
+    def report_full_discovery_results(self, session_id: str, device_id: int, device_ip: str, status: str, discovery_results: Dict = None, error: str = None):
+        """Report full device discovery results back to backend"""
+        try:
+            if status == "success":
+                payload = discovery_results
+            else:
+                payload = {
+                    "status": "failed",
+                    "session_id": session_id,
+                    "device_id": device_id,
+                    "device_ip": device_ip,
+                    "error": error
+                }
+            
+            response = self.safe_request(
+                'POST',
+                f"{self.backend_url.rstrip('/')}/api/v1/agents/{self.config['agent_id']}/full-device-discovery-results",
+                headers={'X-Agent-Token': self.agent_token, 'Content-Type': 'application/json'},
+                json=payload,
+                timeout=30
+            )
+            
+            if response and response.status_code == 200:
+                logger.info(f"[{session_id}] Successfully reported full discovery results for {device_ip}")
+            else:
+                logger.error(f"[{session_id}] Failed to report full discovery results for {device_ip}: {response.status_code if response else 'No response'}")
+                
+        except Exception as e:
+            logger.error(f"[{session_id}] Error reporting full discovery results: {e}")
+    
+    def test_device_connectivity(self, ip_address: str) -> bool:
+        """Test if device is reachable using ping or socket connection"""
+        try:
+            # Try ping first
+            system = platform.system().lower()
+            if system == "windows":
+                cmd = ["ping", "-n", "1", "-w", "1000", ip_address]
+            else:
+                cmd = ["ping", "-c", "1", "-W", "1", ip_address]
+            
+            result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            if result.returncode == 0:
+                return True
+                
+        except Exception as e:
+            logger.warning(f"Ping test failed for {ip_address}: {str(e)}")
+        
+        # Fallback: try socket connection to common ports
+        try:
+            import socket
+            for port in [22, 23, 80, 161]:  # SSH, Telnet, HTTP, SNMP
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                if sock.connect_ex((ip_address, port)) == 0:
+                    sock.close()
+                    return True
+                sock.close()
+        except Exception as e:
+            logger.warning(f"Socket fallback failed for {ip_address}: {str(e)}")
+        
+        return False
+    
+    def test_snmp_connectivity(self, ip_address: str, snmp_config: Dict) -> tuple[bool, str]:
+        """Test SNMP connectivity to device"""
+        if not SNMP_AVAILABLE:
+            return False, "SNMP libraries not available"
+        
+        try:
+            community = snmp_config.get('community', 'cisco')
+            port = snmp_config.get('port', 161)
+            
+            iterator = getCmd(
+                SnmpEngine(),
+                CommunityData(community),
+                UdpTransportTarget((ip_address, port), timeout=3, retries=1),
+                ContextData(),
+                ObjectType(ObjectIdentity('1.3.6.1.2.1.1.5.0'))  # sysName
+            )
+            
+            error_indication, error_status, error_index, var_binds = next(iterator)
+            
+            if error_indication or error_status:
+                return False, f"SNMP error: {error_indication or error_status}"
+            
+            return True, "SNMP test successful"
+            
+        except Exception as e:
+            return False, f"SNMP test failed: {str(e)}"
+    
+    def collect_mib2_information(self, ip_address: str, snmp_config: Dict) -> Dict:
+        """Collect MIB-2 system information from device"""
+        if not SNMP_AVAILABLE:
+            return {
+                "hostname": "Not available",
+                "description": "Not available",
+                "vendor": "Not available",
+                "model": "Not available",
+                "uptime": "Not available",
+                "location": "Not available"
+            }
+        
+        try:
+            community = snmp_config.get('community', 'cisco')
+            port = snmp_config.get('port', 161)
+            
+            # OIDs for MIB-2 system information
+            oids = {
+                'sysDescr': '1.3.6.1.2.1.1.1.0',    # System description
+                'sysUpTime': '1.3.6.1.2.1.1.3.0',   # System uptime
+                'sysName': '1.3.6.1.2.1.1.5.0',     # System name
+                'sysLocation': '1.3.6.1.2.1.1.6.0'  # System location
+            }
+            
+            mib2_data = {}
+            
+            for name, oid in oids.items():
+                try:
+                    iterator = getCmd(
+                        SnmpEngine(),
+                        CommunityData(community),
+                        UdpTransportTarget((ip_address, port), timeout=3, retries=1),
+                        ContextData(),
+                        ObjectType(ObjectIdentity(oid))
+                    )
+                    
+                    error_indication, error_status, error_index, var_binds = next(iterator)
+                    
+                    if not (error_indication or error_status):
+                        for var_bind in var_binds:
+                            mib2_data[name] = str(var_bind[1])
+                            
+                except Exception as e:
+                    logger.warning(f"Failed to get {name} for {ip_address}: {str(e)}")
+                    continue
+            
+            # Extract vendor and model from sysDescr
+            vendor = "Unknown"
+            model = "Unknown"
+            if 'sysDescr' in mib2_data:
+                sys_descr = mib2_data['sysDescr']
+                parts = sys_descr.split()
+                if len(parts) >= 2:
+                    vendor = parts[0]
+                    model = parts[1] if len(parts) > 1 else "Unknown"
+            
+            return {
+                "hostname": mib2_data.get('sysName', 'Not available'),
+                "description": mib2_data.get('sysDescr', 'Not available'),
+                "vendor": vendor,
+                "model": model,
+                "uptime": mib2_data.get('sysUpTime', 'Not available'),
+                "location": mib2_data.get('sysLocation', 'Not available')
+            }
+            
+        except Exception as e:
+            logger.error(f"Error collecting MIB-2 information: {str(e)}")
+            return {
+                "hostname": "Not available",
+                "description": "Not available",
+                "vendor": "Not available",
+                "model": "Not available",
+                "uptime": "Not available",
+                "location": "Not available"
+            }
+    
+    def collect_device_information(self, ip_address: str, snmp_config: Dict) -> Dict:
+        """Collect basic device information"""
+        if not SNMP_AVAILABLE:
+            return {
+                "hostname": "Unknown",
+                "model": "Unknown",
+                "platform": "Unknown",
+                "os_version": "Unknown",
+                "serial_number": "Unknown"
+            }
+        
+        try:
+            community = snmp_config.get('community', 'cisco')
+            port = snmp_config.get('port', 161)
+            
+            # OIDs for device information
+            oids = {
+                'hostname': '1.3.6.1.2.1.1.5.0',           # sysName
+                'model': '1.3.6.1.2.1.47.1.1.1.1.13.1',    # entPhysicalModelName
+                'serial': '1.3.6.1.2.1.47.1.1.1.1.11.1',   # entPhysicalSerialNum
+                'platform': '1.3.6.1.2.1.1.1.0'             # sysDescr
+            }
+            
+            device_data = {}
+            
+            for name, oid in oids.items():
+                try:
+                    iterator = getCmd(
+                        SnmpEngine(),
+                        CommunityData(community),
+                        UdpTransportTarget((ip_address, port), timeout=3, retries=1),
+                        ContextData(),
+                        ObjectType(ObjectIdentity(oid))
+                    )
+                    
+                    error_indication, error_status, error_index, var_binds = next(iterator)
+                    
+                    if not (error_indication or error_status):
+                        for var_bind in var_binds:
+                            device_data[name] = str(var_bind[1])
+                            
+                except Exception as e:
+                    logger.warning(f"Failed to get {name} for {ip_address}: {str(e)}")
+                    continue
+            
+            # Extract platform from sysDescr
+            platform = "Unknown"
+            if 'platform' in device_data:
+                sys_descr = device_data['platform']
+                if 'IOS' in sys_descr:
+                    platform = 'cisco_ios'
+                elif 'IOS-XE' in sys_descr:
+                    platform = 'cisco_ios_xe'
+                elif 'NX-OS' in sys_descr:
+                    platform = 'cisco_nx_os'
+                else:
+                    platform = 'cisco_ios'  # Default
+            
+            return {
+                "hostname": device_data.get('hostname', 'Unknown'),
+                "model": device_data.get('model', 'Unknown'),
+                "platform": platform,
+                "os_version": "Unknown",  # Could be extracted from sysDescr
+                "serial_number": device_data.get('serial', 'Unknown')
+            }
+            
+        except Exception as e:
+            logger.error(f"Error collecting device information: {str(e)}")
+            return {
+                "hostname": "Unknown",
+                "model": "Unknown",
+                "platform": "Unknown",
+                "os_version": "Unknown",
+                "serial_number": "Unknown"
+            }
     
     def perform_status_test(self, session_id: str, network_id: int, devices: List[Dict]):
         """Perform status testing for devices"""
