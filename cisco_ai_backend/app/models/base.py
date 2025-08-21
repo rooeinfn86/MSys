@@ -210,19 +210,19 @@ class Agent(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     agent_token = Column(String, unique=True, nullable=False, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
-    ip_address = Column(String, nullable=True)
-    port = Column(Integer, default=8080)
-    status = Column(String, default="offline")  # online, offline, error
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    status = Column(String, nullable=True)
     last_heartbeat = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    capabilities = Column(JSON, nullable=True)
+    version = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
     
-    # Topology discovery fields
+    # Topology discovery fields (these exist from the topology migration)
     topology_discovery_status = Column(String, default="idle")
     last_topology_discovery = Column(DateTime, nullable=True)
-    topology_discovery_config = Column(JSONB, nullable=True)
+    topology_discovery_config = Column(JSON, nullable=True)
     discovered_devices_count = Column(Integer, default=0)
     topology_last_updated = Column(DateTime, nullable=True)
     topology_discovery_progress = Column(Integer, default=0)
@@ -243,9 +243,9 @@ class AgentNetworkAccess(Base):
     id = Column(Integer, primary_key=True, index=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
     network_id = Column(Integer, ForeignKey("networks.id"), nullable=False)
-    access_level = Column(String, default="full")  # full, read_only, limited
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    created_at = Column(DateTime, nullable=True)
 
     # Relationships
     agent = relationship("Agent", back_populates="network_access")
