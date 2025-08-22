@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, constr
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime
 from enum import Enum
 from pydantic import validator
@@ -369,6 +369,17 @@ class DiscoveryRequest(BaseModel):
     priv_protocol: Optional[str] = None
     priv_password: Optional[str] = None
     snmp_port: str = "161"
+
+    class Config:
+        from_attributes = True
+
+
+class AgentDiscoveryResults(BaseModel):
+    """Schema for when agents send discovery results to backend"""
+    agent_name: str
+    discovered_devices: List[Dict[str, Any]]
+    timestamp: str
+    network_id: Optional[int] = None
 
     class Config:
         from_attributes = True

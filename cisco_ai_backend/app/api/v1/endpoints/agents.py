@@ -26,7 +26,7 @@ from app.schemas.base import (
     AgentCreate, AgentUpdate, AgentResponse, AgentRegistration,
     AgentHeartbeat, DiscoveryRequest, DiscoveryResponse, AgentTokenAuditLogResponse
 )
-from app.schemas.base import AgentDiscoveryRequest
+from app.schemas.base import AgentDiscoveryRequest, AgentDiscoveryResults
 
 router = APIRouter()
 
@@ -2074,18 +2074,43 @@ async def delete_agent(
 
 @router.post("/discovery", response_model=DiscoveryResponse)
 async def agent_discovery(
-    discovery_data: DiscoveryRequest,
+    discovery_data: AgentDiscoveryResults,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Route discovery request to appropriate agent."""
+    """Receive discovery results from agents and process them."""
     try:
         user = db.query(User).filter(User.id == current_user["user_id"]).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        # Process the discovery results directly
+        logger.info(f"Processing discovery results from agent {discovery_data.agent_name}")
+        
+        # Extract discovered devices from the request
+        discovered_devices = discovery_data.discovered_devices or []
+        
+        # Get network_id from the request or try to determine it
+        network_id = discovery_data.network_id
+        if not network_id:
+            # Try to get network_id from the first device's IP
+            if discovered_devices:
+                first_device_ip = discovered_devices[0].get('ip') or discovered_devices[0].get('ip_address')
+                if first_device_ip:
+                    # Find network by IP range
+                    from app.models.base import Network
+                    network = db.query(Network).filter(
+                        Network.ip_range.contains(first_device_ip)
+                    ).first()
+                    if network:
+                        network_id = network.id
+                        logger.info(f"Determined network_id {network_id} from device IP {first_device_ip}")
+        
+        if not network_id:
+            raise HTTPException(status_code=400, detail="Network ID is required for discovery processing")
+        
         # Validate user has access to the network
-        if not validate_user_network_access(user, discovery_data.network_id, db):
+        if not validate_user_network_access(user, network_id, db):
             raise HTTPException(
                 status_code=403,
                 detail="No access to this network"
@@ -2094,7 +2119,7 @@ async def agent_discovery(
         # Find agent that has access to this network and is online
         agent = db.query(Agent).join(AgentNetworkAccess).filter(
             and_(
-                AgentNetworkAccess.network_id == discovery_data.network_id,
+                AgentNetworkAccess.network_id == network_id,
                 Agent.status == "online",
                 Agent.last_heartbeat >= datetime.utcnow() - timedelta(minutes=5)  # Agent was active in last 5 minutes
             )
@@ -2106,22 +2131,125 @@ async def agent_discovery(
                 detail="No online agent available for this network"
             )
         
-        # FUTURE ENHANCEMENT: Implement agent communication for discovery
-        # This endpoint should send discovery requests to agents via WebSocket or HTTP
-        # Currently returning placeholder response - agent communication not yet implemented
-        logger.info(f"Discovery request would be routed to agent {agent.name} (placeholder response)")
+        # Process the discovery results directly
+        logger.info(f"Processing discovery results from agent {agent.name} for network {network_id}")
+        
+        # Extract discovered devices from the request
+        discovered_devices = discovery_data.discovered_devices or []
+        
+        # Process discovered devices (similar to submit_discovery_results)
+        saved_devices = []
+        errors = []
+        
+        for device_data in discovered_devices:
+            try:
+                # Extract device information
+                device_name = device_data.get("hostname", device_data.get("name", f"Device-{device_data.get('ip', device_data.get('ip_address', 'unknown'))}"))
+                device_ip = device_data.get("ip") or device_data.get("ip_address")
+                device_type = device_data.get("device_type", "unknown")
+                location = device_data.get("location", "")
+                platform = device_data.get("vendor", "cisco_ios")
+                os_version = device_data.get("os_version", "")
+                serial_number = device_data.get("serial_number", "")
+                
+                # Extract SSH credentials
+                ssh_username = ""
+                ssh_password = ""
+                if device_data.get("credentials"):
+                    creds = device_data["credentials"]
+                    ssh_username = creds.get("username", "")
+                    ssh_password = creds.get("password", "")
+                    logger.info(f"[DIRECT DISCOVERY] Extracted SSH credentials for {device_ip}: username='{ssh_username}', password={'*' * len(ssh_password) if ssh_password else 'None'}")
+                
+                # Validate required fields
+                if not device_ip:
+                    logger.error(f"Device IP is missing for device: {device_data}")
+                    errors.append(f"Device IP is missing for device: {device_name}")
+                    continue
+                
+                if not device_name:
+                    logger.error(f"Device name is missing for device: {device_data}")
+                    errors.append(f"Device name is missing for device with IP: {device_ip}")
+                    continue
+                
+                logger.info(f"Processing discovered device: {device_name} ({device_ip}) with type: {device_type}, platform: {platform}")
+                
+                # Create or update device in database
+                existing_device = db.query(Device).filter(
+                    and_(
+                        Device.ip == device_ip,
+                        Device.network_id == network_id
+                    )
+                ).first()
+                
+                if existing_device:
+                    # Update existing device
+                    existing_device.name = device_name
+                    existing_device.type = device_type
+                    existing_device.platform = platform
+                    existing_device.location = location
+                    existing_device.os_version = os_version
+                    existing_device.serial_number = serial_number
+                    existing_device.discovery_method = "enhanced"
+                    existing_device.updated_at = datetime.utcnow()
+                    
+                    # Update SSH credentials if provided
+                    if ssh_username and ssh_password:
+                        existing_device.username = ssh_username
+                        existing_device.password = ssh_password
+                        logger.info(f"[DIRECT DISCOVERY] Updated SSH credentials for existing device {device_ip}")
+                    
+                    saved_devices.append(existing_device)
+                    logger.info(f"Updated existing device: {device_name} ({device_ip})")
+                else:
+                    # Create new device
+                    new_device = Device(
+                        name=device_name,
+                        ip=device_ip,
+                        type=device_type,
+                        platform=platform,
+                        location=location,
+                        os_version=os_version,
+                        serial_number=serial_number,
+                        network_id=network_id,
+                        owner_id=user.id,
+                        company_id=user.company_id,
+                        username=ssh_username,  # Use extracted SSH credentials
+                        password=ssh_password,  # Use extracted SSH credentials
+                        ping_status=True,  # Device was discovered, so it's reachable
+                        snmp_status=True,  # Device was discovered, so SNMP is working
+                        discovery_method="enhanced",
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
+                    db.add(new_device)
+                    saved_devices.append(new_device)
+                    logger.info(f"Created new device: {device_name} ({device_ip}) with SSH credentials: username='{ssh_username}', password={'*' * len(ssh_password) if ssh_password else 'None'}")
+                
+            except Exception as e:
+                logger.error(f"Error processing discovered device {device_data.get('ip', 'unknown')}: {str(e)}")
+                errors.append(f"Failed to process device {device_data.get('ip', 'unknown')}: {str(e)}")
+        
+        # Commit all changes to database
+        try:
+            db.commit()
+            logger.info(f"Successfully processed {len(saved_devices)} discovered devices")
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error committing discovered devices to database: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error saving discovered devices: {str(e)}")
         
         return DiscoveryResponse(
-            status="pending_implementation",
-            message=f"Agent discovery routing not yet implemented - would route to agent {agent.name}",
-            discovered_devices=[],
-            errors=["Agent communication not yet implemented"]
+            status="success",
+            message=f"Successfully processed {len(saved_devices)} discovered devices",
+            discovered_devices=[{"id": d.id, "name": d.name, "ip": d.ip} for d in saved_devices],
+            errors=errors
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error routing discovery: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing discovery: {str(e)}")
 
 
 @router.get("/network/{network_id}/available-agents")
@@ -2498,10 +2626,12 @@ async def submit_discovery_results(
             logger.info(f"[AGENT DISCOVERY] Device {i+1}: {device_data.get('ip', device_data.get('ip_address', 'unknown'))}")
             logger.info(f"[AGENT DISCOVERY]   - discovery_method: {device_data.get('discovery_method')}")
             logger.info(f"[AGENT DISCOVERY]   - has_credentials: {bool(device_data.get('credentials'))}")
+            logger.info(f"[AGENT DISCOVERY]   - raw_credentials: {device_data.get('credentials')}")
             if device_data.get('credentials'):
                 creds = device_data['credentials']
                 logger.info(f"[AGENT DISCOVERY]   - credentials: username='{creds.get('username', '')}', password={'*' * len(creds.get('password', '')) if creds.get('password') else 'None'}")
             logger.info(f"[AGENT DISCOVERY]   - capabilities: {device_data.get('capabilities', [])}")
+            logger.info(f"[AGENT DISCOVERY]   - full_device_data: {device_data}")
         
         # Store discovered devices in memory storage
         global discovery_sessions
@@ -2747,13 +2877,27 @@ async def submit_discovery_results(
                     ssh_password = ""
                     
                     # Check if device was discovered via SSH and has credentials
+                    logger.info(f"[DEVICE CREATION] Processing device {device_ip} for creation")
+                    logger.info(f"[DEVICE CREATION] Raw device_data: {device_data}")
+                    logger.info(f"[DEVICE CREATION] discovery_method: {device_data.get('discovery_method')}")
+                    logger.info(f"[DEVICE CREATION] has_credentials: {bool(device_data.get('credentials'))}")
+                    logger.info(f"[DEVICE CREATION] raw_credentials: {device_data.get('credentials')}")
+                    
                     if device_data.get("discovery_method") == "ssh" and device_data.get("credentials"):
                         ssh_creds = device_data["credentials"]
                         ssh_username = ssh_creds.get("username", "")
                         ssh_password = ssh_creds.get("password", "")
                         logger.info(f"[CREDENTIALS] Extracted SSH credentials for {device_ip}: username='{ssh_username}', password={'*' * len(ssh_password) if ssh_password else 'None'}")
+                    elif device_data.get("discovery_method") == "enhanced" and device_data.get("credentials"):
+                        # Enhanced discovery should also have credentials
+                        ssh_creds = device_data["credentials"]
+                        ssh_username = ssh_creds.get("username", "")
+                        ssh_password = ssh_creds.get("password", "")
+                        logger.info(f"[CREDENTIALS] Extracted SSH credentials from enhanced discovery for {device_ip}: username='{ssh_username}', password={'*' * len(ssh_password) if ssh_password else 'None'}")
                     else:
                         logger.warning(f"[CREDENTIALS] No SSH credentials found for {device_ip}, discovery_method={device_data.get('discovery_method')}, has_credentials={bool(device_data.get('credentials'))}")
+                    
+                    logger.info(f"[DEVICE CREATION] Final credentials for {device_ip}: username='{ssh_username}', password={'*' * len(ssh_password) if ssh_password else 'None'}")
                     
                     new_device = Device(
                         name=device_name,
