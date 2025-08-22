@@ -20,36 +20,17 @@ export const deviceService = {
   async refreshDevice(deviceId, networkId) {
     try {
       console.log("🔄 RefreshDevice: Starting refresh for device:", deviceId, "in network:", networkId);
+      
+      // Use the existing device status refresh endpoint
       console.log("🔄 RefreshDevice: Calling endpoint:", `/api/v1/devices/status/${deviceId}/refresh-agent`);
+      
       const refreshResponse = await api.post(`/api/v1/devices/status/${deviceId}/refresh-agent`);
+      
       console.log("✅ RefreshDevice: Response received:", refreshResponse);
       console.log("✅ RefreshDevice: Response data:", refreshResponse.data);
       return refreshResponse.data;
     } catch (err) {
       console.error("❌ RefreshDevice: Error details:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        fullError: err
-      });
-      throw err;
-    }
-  },
-
-  // Enhanced device refresh that collects MIB-2 information
-  async refreshDeviceFull(deviceId, networkId) {
-    try {
-      console.log("🚀 RefreshDeviceFull: Starting enhanced refresh for device:", deviceId, "in network:", networkId);
-      console.log("🚀 RefreshDeviceFull: Calling enhanced endpoint:", `/api/v1/devices/${deviceId}/refresh-full`);
-      
-      const refreshResponse = await api.post(`/api/v1/devices/${deviceId}/refresh-full`);
-      console.log("✅ RefreshDeviceFull: Enhanced response received:", refreshResponse);
-      console.log("✅ RefreshDeviceFull: Enhanced response data:", refreshResponse.data);
-      
-      return refreshResponse.data;
-    } catch (err) {
-      console.error("❌ RefreshDeviceFull: Error details:", {
         message: err.message,
         response: err.response?.data,
         status: err.response?.status,
@@ -92,14 +73,13 @@ export const deviceService = {
       // Get device topology information if available
       let topologyInfo = null;
       try {
-        const topologyResponse = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}/topology`);
+        const topologyResponse = await api.get(`/api/v1/topology/${networkId}/device/${deviceId}/info`);
         topologyInfo = topologyResponse.data;
         console.log("📋 Topology info:", topologyInfo);
-        console.log("📋 Topology MIB-2 fields:", {
-          hostname: topologyInfo?.hostname,
-          vendor: topologyInfo?.vendor,
-          model: topologyInfo?.model,
-          uptime: topologyInfo?.uptime
+        console.log("📋 Topology status fields:", {
+          ping_status: topologyInfo?.ping_status,
+          snmp_status: topologyInfo?.snmp_status,
+          is_active: topologyInfo?.is_active
         });
       } catch (topoErr) {
         console.log("Topology info not available:", topoErr);

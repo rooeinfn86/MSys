@@ -102,92 +102,77 @@ const useModalState = (networkId) => {
 
   // Refresh device information
   const handleRefreshDeviceInfo = useCallback(async () => {
-    if (!deviceInfoModal.data || !deviceInfoModal.data.id) {
-      console.error('❌ No device data available for refresh');
-      return;
-    }
-
+    if (!deviceInfoModal.data || !deviceInfoModal.data.id) return;
+    
     try {
-      setDeviceInfoModal(prev => ({ ...prev, loading: true }));
-      
-      // Safely extract deviceId from current modal data
+      setDeviceInfoModal(prev => ({
+        ...prev,
+        loading: true,
+        error: null
+      }));
+
+      // Extract device ID safely
       let deviceId;
       if (deviceInfoModal.data.id) {
         // If it's in format "device_123", extract the number
         if (typeof deviceInfoModal.data.id === 'string' && deviceInfoModal.data.id.startsWith('device_')) {
-          deviceId = parseInt(deviceInfoModal.data.id.replace('device_', ''));
+          deviceId = deviceInfoModal.data.id.replace('device_', '');
         } else {
-          deviceId = parseInt(deviceInfoModal.data.id);
+          // If it's already a number or different format, use as is
+          deviceId = deviceInfoModal.data.id;
         }
       } else if (deviceInfoModal.data.device_id) {
         // Fallback to device_id field
-        deviceId = parseInt(deviceInfoModal.data.device_id);
+        deviceId = deviceInfoModal.data.device_id;
       } else {
         throw new Error('Could not determine device ID from modal data');
       }
       
-      if (isNaN(deviceId)) {
-        console.error('❌ Invalid device ID:', deviceInfoModal.data.id);
-        setDeviceInfoModal(prev => ({ ...prev, loading: false }));
-        return;
-      }
-
-      const networkIdNum = parseInt(networkId);
-      if (isNaN(networkIdNum)) {
-        console.error('❌ Invalid network ID:', networkId);
-        setDeviceInfoModal(prev => ({ ...prev, loading: false }));
-        return;
-      }
-
-      console.log('🚀 Triggering enhanced device refresh for device:', deviceId);
+      console.log('🔄 Device ID extraction:', {
+        originalId: deviceInfoModal.data.id,
+        device_id: deviceInfoModal.data.device_id,
+        extractedId: deviceId,
+        networkId: networkId,
+        dataType: typeof deviceId
+      });
       
-      // Use the enhanced refresh method that queues discovery for agent
-      const refreshResult = await deviceService.refreshDeviceFull(deviceId, networkIdNum);
-      console.log('✅ Enhanced refresh queued:', refreshResult);
-      
-      if (refreshResult.status === 'queued') {
-        console.log('⏳ Discovery queued for agent, waiting for completion...');
-        
-        // Wait a bit for the agent to process the request
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Fetch updated device information from database
-        console.log('📋 Fetching updated device info after refresh...');
-        const updatedDeviceInfo = await deviceService.getDeviceInfo(deviceId, networkIdNum);
-        
-        if (updatedDeviceInfo) {
-          console.log('✅ Updated device info fetched:', updatedDeviceInfo);
-          
-          // Update the modal with fresh data from database
-          setDeviceInfoModal(prev => ({ 
-            ...prev, 
-            loading: false, 
-            data: updatedDeviceInfo 
-          }));
-          
-          console.log('✅ Device info modal updated with fresh data from database');
-        } else {
-          console.error('❌ Failed to fetch updated device info');
-          setDeviceInfoModal(prev => ({ ...prev, loading: false }));
-        }
-      } else if (refreshResult.status === 'completed') {
-        // Handle direct completion (for public IPs)
-        console.log('✅ Refresh completed directly:', refreshResult);
-        setDeviceInfoModal(prev => ({ ...prev, loading: false }));
-      } else {
-        console.error('❌ Enhanced refresh failed:', refreshResult.error || 'Unknown error');
-        setDeviceInfoModal(prev => ({ ...prev, loading: false }));
+      // Validate device ID
+      if (!deviceId || isNaN(deviceId)) {
+        throw new Error(`Invalid device ID: ${deviceId}`);
       }
       
+      // First, trigger the device refresh through the agent
+      console.log('🔄 Triggering device refresh for device:', deviceId);
+      await deviceService.refreshDevice(deviceId, networkId);
+      
+      // Wait a moment for the agent to process the refresh
+      console.log('⏳ Waiting for agent to process refresh...');
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Increased from 2000ms to 5000ms
+      
+      // Now fetch the updated device information with force refresh
+      console.log('📋 Fetching updated device info...');
+      const updatedDeviceInfo = await deviceService.getDeviceInfo(deviceId, networkId);
+      
+      setDeviceInfoModal(prev => ({
+        ...prev,
+        loading: false,
+        data: { ...prev.data, ...updatedDeviceInfo }
+      }));
+      
+      console.log('✅ Device refresh completed successfully');
     } catch (err) {
-      console.error('❌ Error during enhanced device refresh:', {
+      console.error('❌ Error refreshing device info:', {
+        error: err,
         message: err.message,
         response: err.response?.data,
         status: err.response?.status,
         statusText: err.response?.statusText
       });
-      setDeviceInfoModal(prev => ({ ...prev, loading: false }));
-      // You could show an error notification here
+      setDeviceInfoModal(prev => ({
+        ...prev,
+        loading: false,
+        error: err.message || err.response?.data?.detail || 'Failed to refresh device information'
+      }));
     }
   }, [deviceInfoModal.data, networkId]);
 

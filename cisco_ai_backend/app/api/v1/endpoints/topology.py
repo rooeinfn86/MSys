@@ -16,8 +16,6 @@ from app.schemas.topology import (
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.services.topology_cache import topology_cache
-from app.models.base import User, UserNetworkAccess
-from sqlalchemy import and_
 import logging
 
 # Import ping and SNMP check functions
@@ -1454,63 +1452,3 @@ async def cleanup_health_cache(
     except Exception as e:
         logging.error(f"Error cleaning up health cache: {e}")
         raise HTTPException(status_code=500, detail=f"Error cleaning up cache: {str(e)}") 
-
-@router.get("/{network_id}/device/{device_id}/topology")
-async def get_device_topology_info(
-    network_id: int,
-    device_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get device topology information including MIB-2 data."""
-    try:
-        # Check if user has access to this network
-        if current_user.get("role") != "superadmin":
-            user = db.query(User).filter(User.id == current_user.get("user_id")).first()
-            if not user:
-                raise HTTPException(status_code=401, detail="User not found")
-            
-            # Check network access
-            network_access = db.query(UserNetworkAccess).filter(
-                and_(UserNetworkAccess.user_id == user.id, UserNetworkAccess.network_id == network_id)
-            ).first()
-            
-            if not network_access:
-                raise HTTPException(status_code=403, detail="Access denied to this network")
-        
-        # Get device topology information
-        from app.models.topology import DeviceTopology
-        device_topology = db.query(DeviceTopology).filter(
-            and_(DeviceTopology.device_id == device_id, DeviceTopology.network_id == network_id)
-        ).first()
-        
-        if not device_topology:
-            return {
-                "hostname": "Not available",
-                "vendor": "Not available", 
-                "model": "Not available",
-                "uptime": "Not available",
-                "last_polled": None
-            }
-        
-        # Build comprehensive response including health_data
-        response_data = {
-            "hostname": device_topology.hostname or "Not available",
-            "vendor": device_topology.vendor or "Not available",
-            "model": device_topology.model or "Not available", 
-            "uptime": device_topology.uptime or "Not available",
-            "last_polled": device_topology.last_polled.isoformat() if device_topology.last_polled else None
-        }
-        
-        # Add health_data fields if available
-        if device_topology.health_data:
-            if device_topology.health_data.get("description"):
-                response_data["description"] = device_topology.health_data["description"]
-            if device_topology.health_data.get("location"):
-                response_data["location"] = device_topology.health_data["location"]
-        
-        return response_data
-        
-    except Exception as e:
-        logging.error(f"Error fetching device topology info: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching topology info: {str(e)}") 

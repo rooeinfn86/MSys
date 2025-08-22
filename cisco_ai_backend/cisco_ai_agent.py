@@ -12,7 +12,6 @@ import logging
 import threading
 import subprocess
 import platform
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -23,7 +22,6 @@ import paramiko
 import psutil
 import tkinter as tk
 from tkinter import ttk, messagebox
-import socket
 
 # Configure logging
 logging.basicConfig(
@@ -69,9 +67,6 @@ class CiscoAIAgent:
         # Discovery state
         self.discovered_devices = {}
         self.discovery_running = False
-        
-        # Store current discovery request for credential access
-        self.current_discovery_request = {}
         
         # Service state
         self.running = False
@@ -229,8 +224,6 @@ class CiscoAIAgent:
                         self.handle_enhanced_discovery_request(request)
                     elif request.get('type') == 'status_test':
                         self.handle_status_test_request(request)
-                    elif request.get('type') == 'full_device_discovery':
-                        self.handle_full_device_discovery_request(request)
                     
         except Exception as e:
             logger.error(f"Error checking for discovery requests: {e}")
@@ -278,526 +271,6 @@ class CiscoAIAgent:
             
         except Exception as e:
             logger.error(f"Error handling status test request: {e}")
-    
-    def handle_full_device_discovery_request(self, request_data: Dict):
-        """Handle full device discovery request including MIB-2 information"""
-        try:
-            session_id = request_data.get('session_id')
-            device_id = request_data.get('device_id')
-            device_ip = request_data.get('device_ip')
-            snmp_config = request_data.get('snmp_config', {})
-            
-            logger.info(f"Received full device discovery request: session_id={session_id}, device_id={device_id}, device_ip={device_ip}")
-            
-            # Store the current discovery request for credential access
-            self.current_discovery_request = request_data
-            
-            # Start full device discovery in background thread
-            discovery_thread = threading.Thread(
-                target=self.perform_full_device_discovery,
-                args=(session_id, device_id, device_ip, snmp_config),
-                daemon=True
-            )
-            discovery_thread.start()
-            
-        except Exception as e:
-            logger.error(f"Error handling full device discovery request: {e}")
-    
-    def perform_full_device_discovery(self, session_id: str, device_id: int, device_ip: str, snmp_config: Dict):
-        """Perform full device discovery including MIB-2 information collection"""
-        try:
-            logger.info(f"[{session_id}] Starting full device discovery for {device_ip}")
-            
-            # Step 1: Test device connectivity (ping)
-            ping_success = self.test_device_connectivity(device_ip)
-            
-            if not ping_success:
-                logger.warning(f"[{session_id}] Device {device_ip} is not reachable")
-                self.report_full_discovery_results(session_id, device_id, device_ip, "failed", error="Device unreachable")
-                return
-            
-            # Step 2: Test SNMP connectivity
-            snmp_result = self.test_snmp_connectivity(device_ip, snmp_config)
-            if isinstance(snmp_result, tuple):
-                snmp_success, snmp_info = snmp_result
-            else:
-                snmp_success = snmp_result
-                snmp_info = "SNMP test result"
-            
-            if not snmp_success:
-                logger.warning(f"[{session_id}] SNMP test failed for {device_ip}: {snmp_info}")
-                self.report_full_discovery_results(session_id, device_id, device_ip, "failed", error=f"SNMP test failed: {snmp_info}")
-                return
-            
-            # Step 3: Collect MIB-2 information
-            mib2_info = self.collect_mib2_information(device_ip, snmp_config)
-            
-            # Step 4: Collect comprehensive device information (same as device inventory auto-discovery)
-            device_info = self.collect_comprehensive_device_info(device_ip, snmp_config)
-            
-            # Combine all information
-            discovery_results = {
-                "status": "success",
-                "session_id": session_id,
-                "device_id": device_id,
-                "device_ip": device_ip,
-                "ping_status": True,
-                "snmp_status": True,
-                "hostname": device_info.get('hostname', 'Unknown'),
-                "model": device_info.get('model', 'Unknown'),
-                "platform": device_info.get('platform', 'Unknown'),
-                "os_version": device_info.get('os_version', 'Unknown'),
-                "serial_number": device_info.get('serial_number', 'Unknown'),
-                "mib2_info": mib2_info
-            }
-            
-            logger.info(f"[{session_id}] Full device discovery completed successfully for {device_ip}")
-            self.report_full_discovery_results(session_id, device_id, device_ip, "success", discovery_results)
-            
-        except Exception as e:
-            logger.error(f"[{session_id}] Error in full device discovery: {str(e)}")
-            self.report_full_discovery_results(session_id, device_id, device_ip, "failed", error=str(e))
-    
-    def report_full_discovery_results(self, session_id: str, device_id: int, device_ip: str, status: str, discovery_results: Dict = None, error: str = None):
-        """Report full device discovery results back to backend"""
-        try:
-            if status == "success":
-                payload = discovery_results
-            else:
-                payload = {
-                    "status": "failed",
-                    "session_id": session_id,
-                    "device_id": device_id,
-                    "device_ip": device_ip,
-                    "error": error
-                }
-            
-            response = self.safe_request(
-                'POST',
-                f"{self.backend_url.rstrip('/')}/api/v1/agents/{self.config['agent_id']}/full-device-discovery-results",
-                headers={'X-Agent-Token': self.agent_token, 'Content-Type': 'application/json'},
-                json=payload,
-                timeout=30
-            )
-            
-            if response and response.status_code == 200:
-                logger.info(f"[{session_id}] Successfully reported full discovery results for {device_ip}")
-            else:
-                logger.error(f"[{session_id}] Failed to report full discovery results for {device_ip}: {response.status_code if response else 'No response'}")
-                
-        except Exception as e:
-            logger.error(f"[{session_id}] Error reporting full discovery results: {e}")
-    
-    def test_device_connectivity(self, ip_address: str) -> bool:
-        """Test if device is reachable using ping or socket connection"""
-        try:
-            # Try ping first
-            system = platform.system().lower()
-            if system == "windows":
-                cmd = ["ping", "-n", "1", "-w", "1000", ip_address]
-            else:
-                cmd = ["ping", "-c", "1", "-W", "1", ip_address]
-            
-            result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-            if result.returncode == 0:
-                return True
-                
-        except Exception as e:
-            logger.warning(f"Ping test failed for {ip_address}: {str(e)}")
-        
-        # Fallback: try socket connection to common ports
-        try:
-            import socket
-            for port in [22, 23, 80, 161]:  # SSH, Telnet, HTTP, SNMP
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)
-                if sock.connect_ex((ip_address, port)) == 0:
-                    sock.close()
-                    return True
-                sock.close()
-        except Exception as e:
-            logger.warning(f"Socket fallback failed for {ip_address}: {str(e)}")
-        
-        return False
-    
-    def test_snmp_connectivity(self, ip_address: str, snmp_config: Dict) -> tuple[bool, str]:
-        """Test SNMP connectivity to device"""
-        if not SNMP_AVAILABLE:
-            return False, "SNMP libraries not available"
-        
-        try:
-            community = snmp_config.get('community', 'cisco')
-            port = snmp_config.get('port', 161)
-            
-            iterator = getCmd(
-                SnmpEngine(),
-                CommunityData(community),
-                UdpTransportTarget((ip_address, port), timeout=3, retries=1),
-                ContextData(),
-                ObjectType(ObjectIdentity('1.3.6.1.2.1.1.5.0'))  # sysName
-            )
-            
-            error_indication, error_status, error_index, var_binds = next(iterator)
-            
-            if error_indication or error_status:
-                return False, f"SNMP error: {error_indication or error_status}"
-            
-            return True, "SNMP test successful"
-            
-        except Exception as e:
-            return False, f"SNMP test failed: {str(e)}"
-    
-    def collect_mib2_information(self, ip_address: str, snmp_config: Dict) -> Dict:
-        """Collect MIB-2 system information from device"""
-        if not SNMP_AVAILABLE:
-            return {
-                "hostname": "Not available",
-                "description": "Not available",
-                "vendor": "Not available",
-                "model": "Not available",
-                "uptime": "Not available",
-                "location": "Not available"
-            }
-        
-        try:
-            community = snmp_config.get('community', 'cisco')
-            port = snmp_config.get('port', 161)
-            
-            # OIDs for MIB-2 system information
-            oids = {
-                'sysDescr': '1.3.6.1.2.1.1.1.0',    # System description
-                'sysUpTime': '1.3.6.1.2.1.1.3.0',   # System uptime
-                'sysName': '1.3.6.1.2.1.1.5.0',     # System name
-                'sysLocation': '1.3.6.1.2.1.1.6.0'  # System location
-            }
-            
-            mib2_data = {}
-            
-            for name, oid in oids.items():
-                try:
-                    iterator = getCmd(
-                        SnmpEngine(),
-                        CommunityData(community),
-                        UdpTransportTarget((ip_address, port), timeout=3, retries=1),
-                        ContextData(),
-                        ObjectType(ObjectIdentity(oid))
-                    )
-                    
-                    error_indication, error_status, error_index, var_binds = next(iterator)
-                    
-                    if not (error_indication or error_status):
-                        for var_bind in var_binds:
-                            mib2_data[name] = str(var_bind[1])
-                            
-                except Exception as e:
-                    logger.warning(f"Failed to get {name} for {ip_address}: {str(e)}")
-                    continue
-            
-            # Extract vendor and model from sysDescr
-            vendor = "Unknown"
-            model = "Unknown"
-            if 'sysDescr' in mib2_data:
-                sys_descr = mib2_data['sysDescr']
-                parts = sys_descr.split()
-                if len(parts) >= 2:
-                    vendor = parts[0]
-                    model = parts[1] if len(parts) > 1 else "Unknown"
-            
-            return {
-                "hostname": mib2_data.get('sysName', 'Not available'),
-                "description": mib2_data.get('sysDescr', 'Not available'),
-                "vendor": vendor,
-                "model": model,
-                "uptime": mib2_data.get('sysUpTime', 'Not available'),
-                "location": mib2_data.get('sysLocation', 'Not available')
-            }
-            
-        except Exception as e:
-            logger.error(f"Error collecting MIB-2 information: {str(e)}")
-            return {
-                "hostname": "Not available",
-                "description": "Not available",
-                "vendor": "Not available",
-                "model": "Not available",
-                "uptime": "Not available",
-                "location": "Not available"
-            }
-    
-    def collect_device_information(self, ip_address: str, snmp_config: Dict) -> Dict:
-        """Collect basic device information"""
-        if not SNMP_AVAILABLE:
-            return {
-                "hostname": "Unknown",
-                "model": "Unknown",
-                "platform": "Unknown",
-                "os_version": "Unknown",
-                "serial_number": "Unknown"
-            }
-        
-        try:
-            community = snmp_config.get('community', 'cisco')
-            port = snmp_config.get('port', 161)
-            
-            # OIDs for device information
-            oids = {
-                'hostname': '1.3.6.1.2.1.1.5.0',           # sysName
-                'model': '1.3.6.1.2.1.47.1.1.1.1.13.1',    # entPhysicalModelName
-                'serial': '1.3.6.1.2.1.47.1.1.1.1.11.1',   # entPhysicalSerialNum
-                'platform': '1.3.6.1.2.1.1.1.0'             # sysDescr
-            }
-            
-            device_data = {}
-            
-            for name, oid in oids.items():
-                try:
-                    iterator = getCmd(
-                        SnmpEngine(),
-                        CommunityData(community),
-                        UdpTransportTarget((ip_address, port), timeout=3, retries=1),
-                        ContextData(),
-                        ObjectType(ObjectIdentity(oid))
-                    )
-                    
-                    error_indication, error_status, error_index, var_binds = next(iterator)
-                    
-                    if not (error_indication or error_status):
-                        for var_bind in var_binds:
-                            device_data[name] = str(var_bind[1])
-                            
-                except Exception as e:
-                    logger.warning(f"Failed to get {name} for {ip_address}: {str(e)}")
-                    continue
-            
-            # Extract platform from sysDescr
-            platform = "Unknown"
-            if 'platform' in device_data:
-                sys_descr = device_data['platform']
-                if 'IOS' in sys_descr:
-                    platform = 'cisco_ios'
-                elif 'IOS-XE' in sys_descr:
-                    platform = 'cisco_ios_xe'
-                elif 'NX-OS' in sys_descr:
-                    platform = 'cisco_nx_os'
-                else:
-                    platform = 'cisco_ios'  # Default
-            
-            return {
-                "hostname": device_data.get('hostname', 'Unknown'),
-                "model": device_data.get('model', 'Unknown'),
-                "platform": platform,
-                "os_version": "Unknown",  # Could be extracted from sysDescr
-                "serial_number": device_data.get('serial', 'Unknown')
-            }
-            
-        except Exception as e:
-            logger.error(f"Error collecting device information: {str(e)}")
-            return {
-                "hostname": "Unknown",
-                "model": "Unknown",
-                "platform": "Unknown",
-                "os_version": "Unknown",
-                "serial_number": "Unknown"
-            }
-    
-    def collect_comprehensive_device_info(self, ip_address: str, snmp_config: Dict) -> Dict:
-        """Collect comprehensive device information using SSH (same as device inventory auto-discovery)"""
-        try:
-            # Get SSH credentials from the discovery request, not from agent config
-            # This ensures we use the actual device credentials from the database
-            ssh_creds = self.current_discovery_request.get('ssh_credentials', {})
-            username = ssh_creds.get('username', 'cisco')
-            password = ssh_creds.get('password', 'cisco')
-            ssh_port = ssh_creds.get('port', 22)  # Use port from discovery request or default to 22
-            
-            # Debug: Log what credentials we received (without exposing password)
-            logger.info(f"[COMPREHENSIVE] Received SSH credentials: username='{username}', port={ssh_port}, password={'*' * len(password) if password else 'None'}")
-            logger.info(f"[COMPREHENSIVE] Attempting SSH connection to {ip_address}:{ssh_port} with credentials from device inventory")
-            
-            # Try SSH connection
-            try:
-                import paramiko
-                ssh = paramiko.SSHClient()
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                
-                logger.info(f"[COMPREHENSIVE] Attempting SSH connection with: {ip_address}:{ssh_port}, username: {username}")
-                
-                # Try to connect with more detailed error handling
-                try:
-                    ssh.connect(ip_address, port=ssh_port, username=username, password=password, timeout=10)
-                    logger.info(f"[COMPREHENSIVE] SSH connection successful to {ip_address}:{ssh_port}")
-                except paramiko.AuthenticationException as auth_error:
-                    logger.error(f"[COMPREHENSIVE] SSH authentication failed for {ip_address}:{ssh_port}: {auth_error}")
-                    raise auth_error
-                except paramiko.SSHException as ssh_error:
-                    logger.error(f"[COMPREHENSIVE] SSH connection error for {ip_address}:{ssh_port}: {ssh_error}")
-                    raise ssh_error
-                except socket.error as socket_error:
-                    logger.error(f"[COMPREHENSIVE] Socket error for {ip_address}:{ssh_port}: {socket_error}")
-                    raise socket_error
-                except Exception as conn_error:
-                    logger.error(f"[COMPREHENSIVE] Unexpected connection error for {ip_address}:{ssh_port}: {conn_error}")
-                    raise conn_error
-                
-                # Detect vendor first
-                vendor = self.detect_device_vendor(ssh)
-                logger.info(f"[COMPREHENSIVE] Detected vendor: {vendor}")
-                
-                # Get vendor-specific information
-                if vendor == 'cisco':
-                    device_info = self.get_cisco_device_info(ssh)
-                elif vendor == 'juniper':
-                    device_info = self.get_juniper_device_info(ssh)
-                elif vendor == 'arista':
-                    device_info = self.get_arista_device_info(ssh)
-                else:
-                    device_info = self.get_generic_device_info(ssh)
-                
-                # Add vendor and platform info
-                device_info['vendor'] = vendor
-                device_info['platform'] = self.determine_platform(vendor, device_info.get('description', ''))
-                
-                ssh.close()
-                logger.info(f"[COMPREHENSIVE] SSH discovery completed for {ip_address}")
-                return device_info
-                
-            except Exception as ssh_error:
-                logger.warning(f"[COMPREHENSIVE] SSH failed for {ip_address}:{ssh_port}: {ssh_error}")
-                # Fall back to SNMP-only collection
-                return self.collect_device_information(ip_address, snmp_config)
-                
-        except Exception as e:
-            logger.error(f"[COMPREHENSIVE] Error in comprehensive device info collection: {str(e)}")
-            # Fall back to SNMP-only collection
-            return self.collect_device_information(ip_address, snmp_config)
-    
-    def determine_platform(self, vendor: str, description: str) -> str:
-        """Determine platform based on vendor and description"""
-        if vendor == 'cisco':
-            if 'IOS-XE' in description:
-                return 'cisco_ios_xe'
-            elif 'NX-OS' in description:
-                return 'cisco_nx_os'
-            else:
-                return 'cisco_ios'
-        elif vendor == 'juniper':
-            return 'juniper_junos'
-        elif vendor == 'arista':
-            return 'arista_eos'
-        else:
-            return 'generic'
-    
-    def get_arista_device_info(self, ssh) -> Dict:
-        """Get device information for Arista devices"""
-        device_info = {}
-        
-        try:
-            # Get hostname
-            stdin, stdout, stderr = ssh.exec_command('show hostname', timeout=5)
-            hostname = stdout.read().decode().strip()
-            device_info['hostname'] = hostname if hostname else 'Unknown'
-            
-            # Get version information
-            stdin, stdout, stderr = ssh.exec_command('show version', timeout=10)
-            version_output = stdout.read().decode().strip()
-            device_info['description'] = version_output[:200] + '...' if len(version_output) > 200 else version_output
-            device_info['os_version'] = self.extract_arista_os_version(version_output)
-            device_info['serial_number'] = self.extract_arista_serial(version_output)
-            
-            # Get location
-            stdin, stdout, stderr = ssh.exec_command('show running-config | include snmp-server location', timeout=5)
-            location_output = stdout.read().decode().strip()
-            device_info['location'] = self.extract_arista_location(location_output)
-            
-        except Exception as e:
-            logger.error(f"Arista device info extraction failed: {e}")
-            device_info.update({
-                'hostname': 'Unknown',
-                'description': 'Unknown',
-                'os_version': 'Unknown',
-                'serial_number': 'Unknown',
-                'location': 'Unknown'
-            })
-        
-        return device_info
-    
-    def get_generic_device_info(self, ssh) -> Dict:
-        """Get device information for generic/unknown devices"""
-        device_info = {}
-        
-        try:
-            # Try common commands
-            stdin, stdout, stderr = ssh.exec_command('hostname', timeout=5)
-            hostname = stdout.read().decode().strip()
-            device_info['hostname'] = hostname if hostname else 'Unknown'
-            
-            stdin, stdout, stderr = ssh.exec_command('uname -a', timeout=5)
-            uname_output = stdout.read().decode().strip()
-            device_info['description'] = uname_output[:200] + '...' if len(uname_output) > 200 else uname_output
-            device_info['os_version'] = 'Unknown'
-            device_info['serial_number'] = 'Unknown'
-            device_info['location'] = 'Unknown'
-            
-        except Exception as e:
-            logger.error(f"Generic device info extraction failed: {e}")
-            device_info.update({
-                'hostname': 'Unknown',
-                'description': 'Unknown',
-                'os_version': 'Unknown',
-                'serial_number': 'Unknown',
-                'location': 'Unknown'
-            })
-        
-        return device_info
-    
-    def extract_arista_os_version(self, version_output: str) -> str:
-        """Extract Arista OS version from show version output"""
-        try:
-            # Look for patterns like "Software image version: 4.26.2M"
-            version_match = re.search(r'Software image version:\s*([\d\.]+[a-zA-Z]?)', version_output)
-            if version_match:
-                return version_match.group(1)
-            
-            # Fallback: look for any version pattern
-            version_match = re.search(r'version\s+([\d\.]+[a-zA-Z]?)', version_output, re.IGNORECASE)
-            if version_match:
-                return version_match.group(1)
-            
-            return 'Unknown'
-        except Exception as e:
-            logger.warning(f"Error extracting Arista OS version: {e}")
-            return 'Unknown'
-    
-    def extract_arista_serial(self, version_output: str) -> str:
-        """Extract Arista serial number from show version output"""
-        try:
-            # Look for patterns like "Serial number: JPE12345678"
-            serial_match = re.search(r'Serial number:\s*([A-Z0-9]+)', version_output)
-            if serial_match:
-                return serial_match.group(1)
-            
-            # Fallback: look for any serial pattern
-            serial_match = re.search(r'[Ss]erial[:\s]+([A-Z0-9]+)', version_output)
-            if serial_match:
-                return serial_match.group(1)
-            
-            return 'Unknown'
-        except Exception as e:
-            logger.warning(f"Error extracting Arista serial: {e}")
-            return 'Unknown'
-    
-    def extract_arista_location(self, location_output: str) -> str:
-        """Extract Arista location from running config"""
-        try:
-            if 'snmp-server location' in location_output:
-                # Extract location after "snmp-server location"
-                location_match = re.search(r'snmp-server location\s+(.+)', location_output)
-                if location_match:
-                    return location_match.group(1).strip()
-            
-            return 'Default'
-        except Exception as e:
-            logger.warning(f"Error extracting Arista location: {e}")
-            return 'Default'
     
     def perform_status_test(self, session_id: str, network_id: int, devices: List[Dict]):
         """Perform status testing for devices"""
@@ -1241,7 +714,6 @@ class CiscoAIAgent:
         try:
             username = credentials.get('username', '')
             password = credentials.get('password', '')
-            ssh_port = credentials.get('port', 22)  # Get port from credentials or default to 22
             
             if not username or not password:
                 return None
@@ -1249,25 +721,7 @@ class CiscoAIAgent:
             # Try to connect via SSH
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            
-            logger.info(f"[ENHANCED SSH] Attempting SSH connection with: {ip_address}:{ssh_port}, username: {username}")
-            
-            # Try to connect with more detailed error handling
-            try:
-                ssh.connect(ip_address, port=ssh_port, username=username, password=password, timeout=10)
-                logger.info(f"[ENHANCED SSH] SSH connection successful to {ip_address}:{ssh_port}")
-            except paramiko.AuthenticationException as auth_error:
-                logger.error(f"[ENHANCED SSH] SSH authentication failed for {ip_address}:{ssh_port}: {auth_error}")
-                raise auth_error
-            except paramiko.SSHException as ssh_error:
-                logger.error(f"[ENHANCED SSH] SSH connection error for {ip_address}:{ssh_port}: {ssh_error}")
-                raise ssh_error
-            except socket.error as socket_error:
-                logger.error(f"[ENHANCED SSH] Socket error for {ip_address}:{ssh_port}: {socket_error}")
-                raise socket_error
-            except Exception as conn_error:
-                logger.error(f"[ENHANCED SSH] Unexpected connection error for {ip_address}:{ssh_port}: {conn_error}")
-                raise conn_error
+            ssh.connect(ip_address, username=username, password=password, timeout=5)
             
             # Get device information via SSH commands
             device_info = {
@@ -2488,42 +1942,19 @@ class CiscoAIAgent:
         try:
             snmp_devices = self.snmp_discovery(subnet)
             devices.extend(snmp_devices)
-            logger.info(f"[AUTO DISCOVERY] SNMP discovery found {len(snmp_devices)} devices")
         except Exception as e:
             logger.warning(f"SNMP discovery failed: {e}")
         
-        # Always try SSH discovery for ALL IPs to get credentials
+        # Try SSH discovery for devices not found via SNMP
         try:
             ssh_devices = self.ssh_discovery(subnet)
-            logger.info(f"[AUTO DISCOVERY] SSH discovery found {len(ssh_devices)} devices")
-            
-            # Merge SSH credentials with SNMP devices
-            for snmp_device in devices:
-                snmp_ip = snmp_device.get('ip_address')
-                # Look for matching SSH device to get credentials
-                for ssh_device in ssh_devices:
-                    if ssh_device.get('ip_address') == snmp_ip:
-                        # Merge SSH credentials into SNMP device
-                        snmp_device['credentials'] = ssh_device.get('credentials', {})
-                        snmp_device['discovery_method'] = 'enhanced'  # Both SNMP and SSH
-                        snmp_device['capabilities'] = ['snmp', 'ssh']
-                        logger.info(f"[AUTO DISCOVERY] Merged SSH credentials for {snmp_ip}: {snmp_device.get('credentials')}")
-                        break
-                else:
-                    # No SSH credentials found, keep as SNMP-only
-                    snmp_device['capabilities'] = ['snmp']
-                    logger.info(f"[AUTO DISCOVERY] No SSH credentials found for {snmp_ip}, keeping as SNMP-only")
-            
-            # Add SSH-only devices (not found via SNMP)
+            # Filter out devices already discovered via SNMP
             existing_ips = {device['ip_address'] for device in devices}
             new_ssh_devices = [d for d in ssh_devices if d['ip_address'] not in existing_ips]
             devices.extend(new_ssh_devices)
-            logger.info(f"[AUTO DISCOVERY] Added {len(new_ssh_devices)} SSH-only devices")
-            
         except Exception as e:
             logger.warning(f"SSH discovery failed: {e}")
         
-        logger.info(f"[AUTO DISCOVERY] Total devices found: {len(devices)}")
         return devices
     
     def snmp_discovery(self, subnet: str) -> List[Dict]:
@@ -2611,8 +2042,6 @@ class CiscoAIAgent:
             ('cisco', 'password')
         ]
         
-        logger.info(f"[SSH DISCOVERY] Starting SSH discovery for subnet {subnet} with {len(credentials)} credential sets")
-        
         # Scan subnet for SSH services
         network_parts = subnet.split('.')
         base_ip = '.'.join(network_parts[:-1])
@@ -2622,20 +2051,16 @@ class CiscoAIAgent:
             
             for username, password in credentials:
                 try:
-                    logger.debug(f"[SSH DISCOVERY] Trying {ip_address} with username='{username}', password={'*' * len(password)}")
                     device_info = self.ssh_get_device_info(ip_address, username, password)
                     if device_info:
                         device_info['discovery_method'] = 'ssh'
                         device_info['credentials'] = {'username': username, 'password': password}
                         devices.append(device_info)
-                        logger.info(f"[SSH DISCOVERY] Successfully discovered {ip_address} with credentials username='{username}', password={'*' * len(password)}")
                         break  # Found device, try next IP
                         
                 except Exception as e:
-                    logger.debug(f"[SSH DISCOVERY] Failed {ip_address} with username='{username}': {e}")
                     continue  # Try next credentials
         
-        logger.info(f"[SSH DISCOVERY] SSH discovery completed, found {len(devices)} devices")
         return devices
     
     def ssh_get_device_info(self, ip_address: str, username: str, password: str) -> Optional[Dict]:
