@@ -124,15 +124,19 @@ const useModalState = (networkId) => {
                 is_active: updatedDevice.is_active,
                 last_checked: updatedDevice.last_status_check,
                 // These fields should now be updated from full discovery
-                hostname: updatedDevice.hostname,
-                description: updatedDevice.description,
-                vendor: updatedDevice.vendor,
-                model: updatedDevice.model,
-                uptime: updatedDevice.uptime,
-                platform: updatedDevice.platform,
-                os_version: updatedDevice.os_version
+                hostname: updatedDevice.hostname || updatedDevice.agent_discovered_info?.hostname,
+                description: updatedDevice.description || updatedDevice.agent_discovered_info?.description,
+                vendor: updatedDevice.vendor || updatedDevice.agent_discovered_info?.vendor,
+                model: updatedDevice.model || updatedDevice.agent_discovered_info?.model,
+                uptime: updatedDevice.uptime || updatedDevice.agent_discovered_info?.uptime,
+                platform: updatedDevice.platform || updatedDevice.agent_discovered_info?.platform,
+                os_version: updatedDevice.os_version || updatedDevice.agent_discovered_info?.os_version
               }
             };
+            
+            console.log("🔄 Current modal data:", deviceInfoModal.data);
+            console.log("🔄 Updated device data:", updatedDevice);
+            console.log("🔄 Merged modal data:", modalData);
             
             console.log("🔄 Updating modal with completely refreshed discovery data:", modalData);
             

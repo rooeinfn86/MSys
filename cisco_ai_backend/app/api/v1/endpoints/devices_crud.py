@@ -286,13 +286,14 @@ async def refresh_device(
         # Store refresh request for agent to pick up (same as auto-discovery)
         print(f"🔍 Creating full discovery refresh request for agent {agent_id}")
         refresh_request = {
-            "type": "discovery",  # Same type as auto-discovery (not status_test)
+            "type": "status_test",  # Use status_test type but with full discovery data
             "session_id": session_id,
             "network_id": device.network_id,
             "devices": device_data,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "source": "device_refresh",  # Different source to distinguish from background
-            "discovery_method": "refresh"  # Indicates this is a refresh operation
+            "discovery_method": "refresh",  # Indicates this is a refresh operation
+            "full_discovery": True  # Flag to indicate this should do full discovery
         }
         
         print(f"🔍 Storing full discovery request in pending_discovery_requests")
