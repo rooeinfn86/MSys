@@ -2492,6 +2492,17 @@ async def submit_discovery_results(
         errors = results.get("errors", [])
         session_id = results.get("session_id")
         
+        # Debug: Log what the agent is sending
+        logger.info(f"[AGENT DISCOVERY] Received {len(discovered_devices)} devices from agent {agent_id}")
+        for i, device_data in enumerate(discovered_devices):
+            logger.info(f"[AGENT DISCOVERY] Device {i+1}: {device_data.get('ip', device_data.get('ip_address', 'unknown'))}")
+            logger.info(f"[AGENT DISCOVERY]   - discovery_method: {device_data.get('discovery_method')}")
+            logger.info(f"[AGENT DISCOVERY]   - has_credentials: {bool(device_data.get('credentials'))}")
+            if device_data.get('credentials'):
+                creds = device_data['credentials']
+                logger.info(f"[AGENT DISCOVERY]   - credentials: username='{creds.get('username', '')}', password={'*' * len(creds.get('password', '')) if creds.get('password') else 'None'}")
+            logger.info(f"[AGENT DISCOVERY]   - capabilities: {device_data.get('capabilities', [])}")
+        
         # Store discovered devices in memory storage
         global discovery_sessions
         if session_id not in discovery_sessions:
@@ -2646,6 +2657,25 @@ async def submit_discovery_results(
                     existing_device.discovery_method = discovery_method
                     existing_device.updated_at = datetime.utcnow()
                     
+                    # Update SSH credentials if device was rediscovered via SSH and has credentials
+                    if device_data.get("discovery_method") == "ssh" and device_data.get("credentials"):
+                        ssh_creds = device_data["credentials"]
+                        ssh_username = ssh_creds.get("username", "")
+                        ssh_password = ssh_creds.get("password", "")
+                        
+                        # Only update if we have valid credentials and they're different
+                        if ssh_username and ssh_password:
+                            if existing_device.username != ssh_username or existing_device.password != ssh_password:
+                                existing_device.username = ssh_username
+                                existing_device.password = ssh_password
+                                logger.info(f"[CREDENTIALS] Updated SSH credentials for existing device {device_ip}: username='{ssh_username}', password={'*' * len(ssh_password)}")
+                            else:
+                                logger.info(f"[CREDENTIALS] SSH credentials unchanged for existing device {device_ip}")
+                        else:
+                            logger.warning(f"[CREDENTIALS] Invalid SSH credentials for existing device {device_ip}: username='{ssh_username}', password={'*' * len(ssh_password) if ssh_password else 'None'}")
+                    else:
+                        logger.debug(f"[CREDENTIALS] No SSH credentials update for existing device {device_ip}, discovery_method={device_data.get('discovery_method')}")
+                    
                     # Update or create DeviceTopology record with detailed MIB-2 information
                     existing_topology = db.query(DeviceTopology).filter(DeviceTopology.device_id == existing_device.id).first()
                     
@@ -2712,6 +2742,19 @@ async def submit_discovery_results(
                     logger.info(f"Updated existing device: {device_name} ({device_ip}) - Ping: {ping_ok}, SNMP: {snmp_ok}, Method: {discovery_method}")
                 else:
                     # Create new device
+                    # Extract SSH credentials from discovery results
+                    ssh_username = ""
+                    ssh_password = ""
+                    
+                    # Check if device was discovered via SSH and has credentials
+                    if device_data.get("discovery_method") == "ssh" and device_data.get("credentials"):
+                        ssh_creds = device_data["credentials"]
+                        ssh_username = ssh_creds.get("username", "")
+                        ssh_password = ssh_creds.get("password", "")
+                        logger.info(f"[CREDENTIALS] Extracted SSH credentials for {device_ip}: username='{ssh_username}', password={'*' * len(ssh_password) if ssh_password else 'None'}")
+                    else:
+                        logger.warning(f"[CREDENTIALS] No SSH credentials found for {device_ip}, discovery_method={device_data.get('discovery_method')}, has_credentials={bool(device_data.get('credentials'))}")
+                    
                     new_device = Device(
                         name=device_name,
                         ip=device_ip,
@@ -2723,8 +2766,8 @@ async def submit_discovery_results(
                         network_id=network_id,
                         owner_id=agent.company_id,  # Use agent's company as owner
                         company_id=agent.company_id,
-                        username="",  # Required field
-                        password="",  # Required field
+                        username=ssh_username,  # Use extracted SSH credentials
+                        password=ssh_password,  # Use extracted SSH credentials
                         ping_status=ping_ok,
                         snmp_status=snmp_ok,
                         discovery_method=discovery_method,
