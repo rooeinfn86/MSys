@@ -205,12 +205,24 @@ class DeviceStatusService:
                 # Create a status test request
                 request_id = f"status_test_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{agent.id}"
                 
+                # Get device information to provide complete details
+                device = self.device_service.get_device_by_id(device_id)
+                if not device:
+                    print(f"[AGENT] Device {device_id} not found, falling back to direct check")
+                    return False
+                
                 # Store the request directly (not in a list) to match existing pattern
                 status_request = {
                     "type": "status_test",
-                    "request_id": request_id,
+                    "session_id": request_id,  # Use session_id to match expected format
                     "network_id": network_id,
-                    "devices": [device_id],  # List of device IDs to test
+                    "devices": [{
+                        "id": device.id,
+                        "ip": device.ip,
+                        "name": device.name if hasattr(device, 'name') else "",
+                        "network_id": device.network_id,
+                        "company_id": device.company_id
+                    }],  # Provide complete device information
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 
