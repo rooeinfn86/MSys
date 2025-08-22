@@ -85,24 +85,92 @@ class DeviceService:
             self.db.rollback()
             raise e
     
-    def delete_device(self, device_id: int) -> bool:
+    def delete_device(self, device_id: int, current_user: dict = None) -> bool:
         """Delete a device and all related records."""
+        print(f"🔍 DeviceService.delete_device called for device {device_id}")
+        
         device = self.db.query(Device).filter(Device.id == device_id).first()
         if not device:
             raise ValueError("Device not found")
         
+        print(f"✅ Found device: {device.name} ({device.ip})")
+        print(f"🔍 Device details: network_id={device.network_id}, company_id={device.company_id}")
+        
         try:
-            # Delete all related records first
-            self.db.execute(text("DELETE FROM device_interfaces WHERE device_id = :device_id"), {"device_id": device_id})
-            self.db.execute(text("DELETE FROM device_status WHERE device_id = :device_id"), {"device_id": device_id})
-            self.db.query(DeviceLog).filter(DeviceLog.ip_address == device.ip).delete()
+            # Delete all related records first in the correct order
             
-            # Delete the device
+            # 1. Delete DeviceTopology records (from topology.py)
+            try:
+                from app.models.topology import DeviceTopology
+                topology_count = self.db.query(DeviceTopology).filter(DeviceTopology.device_id == device_id).count()
+                if topology_count > 0:
+                    self.db.query(DeviceTopology).filter(DeviceTopology.device_id == device_id).delete()
+                    print(f"✅ Deleted {topology_count} DeviceTopology records for device {device_id}")
+                else:
+                    print(f"ℹ️  No DeviceTopology records found for device {device_id}")
+            except Exception as e:
+                print(f"⚠️  Could not delete DeviceTopology records: {e}")
+            
+            # 2. Delete DeviceSNMP records (from base.py)
+            try:
+                from app.models.base import DeviceSNMP
+                snmp_count = self.db.query(DeviceSNMP).filter(DeviceSNMP.device_id == device_id).count()
+                if snmp_count > 0:
+                    self.db.query(DeviceSNMP).filter(DeviceSNMP.device_id == device_id).delete()
+                    print(f"✅ Deleted {snmp_count} DeviceSNMP records for device {device_id}")
+                else:
+                    print(f"ℹ️  No DeviceSNMP records found for device {device_id}")
+            except Exception as e:
+                print(f"⚠️  Could not delete DeviceSNMP records: {e}")
+            
+            # 3. Delete DeviceInterfaces records (from interface.py)
+            try:
+                from app.models.interface import DeviceInterface
+                interface_count = self.db.query(DeviceInterface).filter(DeviceInterface.device_id == device_id).count()
+                if interface_count > 0:
+                    self.db.query(DeviceInterface).filter(DeviceInterface.device_id == device_id).delete()
+                    print(f"✅ Deleted {interface_count} DeviceInterface records for device {device_id}")
+                else:
+                    print(f"ℹ️  No DeviceInterface records found for device {device_id}")
+            except Exception as e:
+                print(f"⚠️  Could not delete DeviceInterface records: {e}")
+            
+            # 4. Delete DeviceLog records
+            try:
+                log_count = self.db.query(DeviceLog).filter(DeviceLog.ip_address == device.ip).count()
+                if log_count > 0:
+                    self.db.query(DeviceLog).filter(DeviceLog.ip_address == device.ip).delete()
+                    print(f"✅ Deleted {log_count} DeviceLog records for device {device_id}")
+                else:
+                    print(f"ℹ️  No DeviceLog records found for device {device_id}")
+            except Exception as e:
+                print(f"⚠️  Could not delete DeviceLog records: {e}")
+            
+            # 5. Delete any other related records that might exist
+            # (These tables might not exist in all installations)
+            for table_name in ["device_interfaces", "device_status"]:
+                try:
+                    result = self.db.execute(text(f"DELETE FROM {table_name} WHERE device_id = :device_id"), {"device_id": device_id})
+                    if result.rowcount > 0:
+                        print(f"✅ Deleted {result.rowcount} records from {table_name} for device {device_id}")
+                    else:
+                        print(f"ℹ️  No records found in {table_name} for device {device_id}")
+                except Exception as e:
+                    print(f"ℹ️  Table {table_name} does not exist or error: {e}")
+            
+            # Finally, delete the device itself
+            print(f"🗑️  Deleting device {device_id} ({device.name})")
             self.db.delete(device)
             self.db.commit()
+            
+            print(f"✅ Successfully deleted device {device_id} and all related records")
             return True
+            
         except Exception as e:
             self.db.rollback()
+            print(f"❌ Error deleting device {device_id}: {str(e)}")
+            import traceback
+            print(f"🔍 Full traceback: {traceback.format_exc()}")
             raise e
     
     def get_device_by_id(self, device_id: int) -> Optional[Device]:
