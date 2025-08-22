@@ -3,7 +3,7 @@ import asyncio
 import subprocess
 import platform
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.models.base import Device, DeviceLog, LogType
 from app.services.snmp_service import SNMPService
@@ -105,11 +105,19 @@ class DeviceStatusService:
             # Check if we should use agent-based status checking
             if await self._try_agent_based_status_check(device_id, device.network_id):
                 print(f"[AGENT] Status refresh requested for device {device_id} via agent")
+                # Return a response that includes all expected fields
+                # Ensure ping and snmp are always boolean values
+                current_ping = bool(device.ping_status) if device.ping_status is not None else False
+                current_snmp = bool(device.snmp_status) if device.snmp_status is not None else False
+                
                 return {
                     "status": "pending",
                     "message": "Status refresh requested via agent",
+                    "ping": current_ping,
+                    "snmp": current_snmp,
                     "ip": device.ip,
-                    "last_checked": datetime.utcnow().isoformat()
+                    "last_checked": datetime.now(timezone.utc).isoformat(),
+                    "device_id": device_id
                 }
 
             # Fallback to direct checks if no agent available
@@ -159,10 +167,11 @@ class DeviceStatusService:
 
             return {
                 "status": status,
-                "ping": ping_ok,
-                "snmp": snmp_ok,
+                "ping": bool(ping_ok),  # Ensure boolean type
+                "snmp": bool(snmp_ok),  # Ensure boolean type
                 "ip": device.ip,
-                "last_checked": updated_device.updated_at.isoformat()
+                "last_checked": updated_device.updated_at.isoformat(),
+                "device_id": device_id
             }
         except Exception as e:
             raise e
@@ -188,11 +197,35 @@ class DeviceStatusService:
             agent = online_agents[0]
             print(f"[AGENT] Found online agent {agent.id} for network {network_id}")
             
-            # Request agent to test device status
-            # This would typically be done through a message queue or direct API call
-            # For now, we'll just indicate that agent-based checking is preferred
-            print(f"[AGENT] Agent {agent.id} can handle status check for device {device_id}")
-            return True
+            # Add status test request to pending requests
+            # Import the global pending_discovery_requests from agents module
+            try:
+                from app.api.v1.endpoints.agents import pending_discovery_requests
+                
+                # Create a status test request
+                request_id = f"status_test_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{agent.id}"
+                
+                if agent.id not in pending_discovery_requests:
+                    pending_discovery_requests[agent.id] = []
+                
+                status_request = {
+                    "type": "status_test",
+                    "request_id": request_id,
+                    "network_id": network_id,
+                    "devices": [device_id],  # List of device IDs to test
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                
+                pending_discovery_requests[agent.id].append(status_request)
+                print(f"[AGENT] Status test request {request_id} queued for agent {agent.id}")
+                
+                # Request agent to test device status
+                print(f"[AGENT] Agent {agent.id} can handle status check for device {device_id}")
+                return True
+                
+            except ImportError:
+                print(f"[AGENT] Could not import pending_discovery_requests, falling back to direct check")
+                return False
             
         except Exception as e:
             print(f"[AGENT] Error checking for agent availability: {str(e)}")
