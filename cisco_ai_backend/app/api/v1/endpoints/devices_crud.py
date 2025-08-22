@@ -283,31 +283,33 @@ async def refresh_device(
         }
         device_data.append(device_info)
         
-        # Store refresh request for agent to pick up (same as auto-discovery)
-        print(f"🔍 Creating full discovery refresh request for agent {agent_id}")
-        refresh_request = {
-            "type": "status_test",  # Use status_test type but with full discovery data
-            "session_id": session_id,
-            "network_id": device.network_id,
-            "devices": device_data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "source": "device_refresh",  # Different source to distinguish from background
-            "discovery_method": "refresh",  # Indicates this is a refresh operation
-            "full_discovery": True  # Flag to indicate this should do full discovery
-        }
+        # Use the proper agent discovery endpoint instead of status test
+        print(f"🔍 Using agent discovery endpoint for full device refresh")
         
-        print(f"🔍 Storing full discovery request in pending_discovery_requests")
-        pending_discovery_requests[agent_id] = refresh_request
+        # Import the agent discovery service
+        from app.services.agent_topology_discovery import AgentTopologyDiscoveryService
         
-        print(f"✅ Full device discovery refresh request successfully queued for agent {agent_id}")
-        print(f"🔍 Agent will perform complete SNMP/SSH discovery and update both database tables")
+        # Start full topology discovery on the agent
+        discovery_service = AgentTopologyDiscoveryService(db)
+        discovery_started = discovery_service.start_discovery(
+            agent_id=agent_id,
+            network_id=device.network_id,
+            discovery_type="full"
+        )
         
-        return {
-            "message": "Device refresh started",
-            "session_id": session_id,
-            "agent_id": agent_id,
-            "device_id": device_id
-        }
+        if discovery_started:
+            print(f"✅ Full device discovery refresh started on agent {agent_id}")
+            print(f"🔍 Agent will perform complete SNMP/SSH discovery and update both database tables")
+            
+            return {
+                "message": "Full device discovery refresh started",
+                "session_id": session_id,
+                "agent_id": agent_id,
+                "device_id": device_id,
+                "discovery_type": "full"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to start agent discovery")
         
     except HTTPException:
         raise
