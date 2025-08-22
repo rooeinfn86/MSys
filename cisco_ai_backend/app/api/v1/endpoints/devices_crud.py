@@ -8,9 +8,9 @@ from app.services.permission_service import PermissionService
 from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceResponse, DeviceListResponse
 from app.models.base import User
 
-router = APIRouter(prefix="/devices", tags=["Device CRUD"])
+router = APIRouter(tags=["Device CRUD"])
 
-@router.get("/", response_model=List[DeviceResponse])
+@router.get("/devices/", response_model=List[DeviceResponse])
 async def get_devices(
     network_id: int,
     db: Session = Depends(get_db),
@@ -67,7 +67,7 @@ async def get_devices(
         print(f"Error getting devices: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get devices: {str(e)}")
 
-@router.post("/", response_model=DeviceResponse)
+@router.post("/devices/", response_model=DeviceResponse)
 def create_device(
     device: DeviceCreate,
     db: Session = Depends(get_db),
@@ -123,7 +123,7 @@ def create_device(
         print(f"Error creating device: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{device_id}", response_model=DeviceResponse)
+@router.put("/devices/{device_id}", response_model=DeviceResponse)
 def update_device(
     device_id: int,
     updated_data: DeviceUpdate,
@@ -185,7 +185,7 @@ def update_device(
         print(f"Error updating device: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/{device_id}", status_code=204)
+@router.delete("/devices/{device_id}", status_code=204)
 def delete_device(
     device_id: int,
     db: Session = Depends(get_db),
@@ -223,7 +223,7 @@ def delete_device(
         print(f"Error deleting device: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/all", response_model=List[DeviceResponse])
+@router.get("/devices/all", response_model=List[DeviceResponse])
 def get_all_devices(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
@@ -280,7 +280,7 @@ def get_all_devices(
         print(f"Error getting all devices: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get all devices: {str(e)}")
 
-@router.put("/{device_id}/toggle-service", response_model=DeviceResponse)
+@router.put("/devices/{device_id}/toggle-service", response_model=DeviceResponse)
 def toggle_device_service(
     device_id: int,
     data: dict,

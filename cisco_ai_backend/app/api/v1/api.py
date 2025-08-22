@@ -2,7 +2,6 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth,
     users,
-    devices,
     org_network,
     organizations,
     compliance,
@@ -18,7 +17,7 @@ api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
-api_router.include_router(devices.router, prefix="/devices", tags=["devices"])
+# New refactored device endpoints - include under /devices path
 api_router.include_router(devices_crud_router, prefix="/devices", tags=["Device CRUD"])
 api_router.include_router(device_discovery_router, prefix="/devices", tags=["Device Discovery"])
 api_router.include_router(device_status_router, prefix="/devices", tags=["Device Status"])

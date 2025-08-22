@@ -9,9 +9,9 @@ from app.schemas.status import DeviceStatus, StatusRefreshRequest, StatusRefresh
 from app.models.base import User
 from datetime import datetime
 
-router = APIRouter(prefix="/status", tags=["Device Status"])
+router = APIRouter(tags=["Device Status"])
 
-@router.get("/{device_id}", response_model=DeviceStatus)
+@router.get("/status/{device_id}", response_model=DeviceStatus)
 async def get_device_status(
     device_id: int,
     db: Session = Depends(get_db),
@@ -50,7 +50,7 @@ async def get_device_status(
         print(f"Error getting device status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{device_id}/refresh", response_model=DeviceStatus)
+@router.post("/status/{device_id}/refresh", response_model=DeviceStatus)
 async def refresh_device_status(
     device_id: int,
     db: Session = Depends(get_db),
@@ -89,7 +89,7 @@ async def refresh_device_status(
         print(f"Error refreshing device status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/refresh-all", response_model=StatusRefreshResponse)
+@router.post("/status/refresh-all", response_model=StatusRefreshResponse)
 async def refresh_all_device_status(
     network_id: int,
     db: Session = Depends(get_db),
@@ -129,7 +129,7 @@ async def refresh_all_device_status(
         print(f"Error refreshing all device status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/summary/{network_id}", response_model=DeviceStatusSummary)
+@router.get("/status/summary/{network_id}", response_model=DeviceStatusSummary)
 async def get_device_status_summary(
     network_id: int,
     db: Session = Depends(get_db),
@@ -167,7 +167,7 @@ async def get_device_status_summary(
         print(f"Error getting device status summary: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/report")
+@router.post("/status/report")
 async def report_device_status(
     network_id: int,
     device_statuses: List[dict],

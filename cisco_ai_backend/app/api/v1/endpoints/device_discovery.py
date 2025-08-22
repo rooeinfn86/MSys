@@ -9,9 +9,9 @@ from app.schemas.discovery import DiscoveryRequest, DiscoveryResponse
 from app.models.base import User
 import asyncio
 
-router = APIRouter(prefix="/discovery", tags=["Device Discovery"])
+router = APIRouter(tags=["Device Discovery"])
 
-@router.post("/start", response_model=DiscoveryResponse)
+@router.post("/discovery/start", response_model=DiscoveryResponse)
 async def start_discovery(
     request: Request,
     discovery_data: dict,
@@ -109,7 +109,7 @@ async def start_discovery(
         print(f"Discovery error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to start discovery: {str(e)}")
 
-@router.post("/discover", response_model=Dict[str, str])
+@router.post("/discovery/discover", response_model=Dict[str, str])
 async def discover_device(
     request: Request,
     discovery_data: dict,
@@ -182,7 +182,7 @@ async def discover_device(
         print(f"Error in discover_device: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/status/{network_id}")
+@router.get("/discovery/status/{network_id}")
 async def get_discovery_status(
     network_id: str,
     current_user: dict = Depends(get_current_user),

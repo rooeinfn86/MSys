@@ -21,7 +21,7 @@ from app.services.rollback.history import log_snapshot, rollback_to_snapshot, Sn
 from app.core.database import engine, Base
 from app.models.base import User, Company, Feature, CompanyFeature, Organization, Network, DeviceSNMP, Device, UserOrganizationAccess, UserNetworkAccess, UserFeatureAccess, LogType, DeviceLog
 from app.models.topology import DeviceTopology, InterfaceTopology, NeighborTopology
-from app.api.v1.endpoints import users, devices, org_network, companies
+from app.api.v1.endpoints import users, org_network, companies
 from app.api.v1.api import api_router
 from app.core.secure_config import secure_settings as settings
 from app.core.security_middleware import create_security_middleware
