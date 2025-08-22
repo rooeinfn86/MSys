@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { deviceService } from '../services/deviceService';
 
 export const useDevices = (selectedNetworkId) => {
@@ -23,17 +23,8 @@ export const useDevices = (selectedNetworkId) => {
     }
   }, []);
 
-  useEffect(() => {
-    if (selectedNetworkId) {
-      console.log("DeviceManager fetching devices for network:", selectedNetworkId);
-      fetchDevices(selectedNetworkId);
-    } else {
-      console.log("DeviceManager: No network selected, clearing devices");
-      setDevices([]);
-    }
-  }, [selectedNetworkId]);
-
-  const fetchDevices = async (networkId) => {
+  // Memoize fetchDevices to prevent infinite loops - MOVED BEFORE useEffect
+  const fetchDevices = useCallback(async (networkId) => {
     try {
       console.log("Fetching devices for network:", networkId);
       const data = await deviceService.fetchDevices(networkId);
@@ -123,12 +114,25 @@ export const useDevices = (selectedNetworkId) => {
         });
         
         console.log("Devices with corrected discovery methods:", devicesWithFixedDiscovery);
+        
         setDevices(devicesWithFixedDiscovery);
       }
     } catch (err) {
       console.error("❌ Failed to fetch devices:", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    console.log("🔍 DEBUG: useDevices useEffect triggered with selectedNetworkId:", selectedNetworkId);
+    
+    if (selectedNetworkId) {
+      console.log("DeviceManager fetching devices for network:", selectedNetworkId);
+      fetchDevices(selectedNetworkId);
+    } else {
+      console.log("DeviceManager: No network selected, clearing devices");
+      setDevices([]);
+    }
+  }, [selectedNetworkId, fetchDevices]);
 
   // Function to fix discovery methods for newly discovered devices
   const fixDiscoveryMethodsForNewDevices = async (networkId) => {
@@ -220,4 +224,4 @@ export const useDevices = (selectedNetworkId) => {
     fetchDevices,
     fixDiscoveryMethodsForNewDevices
   };
-}; 
+};

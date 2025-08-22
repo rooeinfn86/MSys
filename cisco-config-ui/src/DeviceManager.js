@@ -6,6 +6,7 @@ import { useTooltip } from './hooks/useTooltip';
 import { useDevices } from './hooks/useDevices';
 import { useDeviceActions } from './hooks/useDeviceActions';
 import { useAgents } from './hooks/useAgents';
+import { useAuthContext } from './contexts/AuthContext';
 
 // Import services
 import { agentService } from './services/agentService';
@@ -73,11 +74,14 @@ const getInitialFormState = (selectedNetworkId) => ({
 });
 
 export default function DeviceManager({ selectedOrgId, selectedNetworkId }) {
-  console.log("DeviceManager component rendered with:", { selectedOrgId, selectedNetworkId });
+  console.log("🔍 DEBUG: DeviceManager component rendered with:", { selectedOrgId, selectedNetworkId });
   
   // Use custom hooks
   const { tooltip, tooltipRef } = useTooltip();
+  const { isAuthenticated, username } = useAuthContext();
+  
   const { devices, userRole, userTier, fetchDevices, fixDiscoveryMethodsForNewDevices } = useDevices(selectedNetworkId);
+  
   const { 
     showForm, setShowForm, editingDeviceId, setEditingDeviceId,
     showConfirmModal, setShowConfirmModal, deviceToDelete, setDeviceToDelete,
@@ -135,14 +139,6 @@ export default function DeviceManager({ selectedOrgId, selectedNetworkId }) {
     errors: []
   });
 
-  // Background monitoring state
-  const [backgroundMonitoring, setBackgroundMonitoring] = useState({
-    isActive: false,
-    lastChecked: null,
-    nextCheck: null,
-    interval: 180000 // 3 minutes in milliseconds
-  });
-
   // Add useEffect to fetch agents when modal opens
   useEffect(() => {
     if (showAutoDiscoveryModal && selectedNetworkId) {
@@ -150,55 +146,114 @@ export default function DeviceManager({ selectedOrgId, selectedNetworkId }) {
     }
   }, [showAutoDiscoveryModal, selectedNetworkId, refreshAgents]); // refreshAgents is now memoized
 
-  // Background device status monitoring
+  // Debug useEffect to track when selectedNetworkId changes
+  useEffect(() => {
+    console.log("🔍 DEBUG: DeviceManager selectedNetworkId changed to:", selectedNetworkId);
+  }, [selectedNetworkId]);
+
+  // Debug useEffect to track component lifecycle
+  useEffect(() => {
+    console.log("🔍 DEBUG: DeviceManager component mounted");
+    
+    return () => {
+      console.log("🔍 DEBUG: DeviceManager component unmounting");
+    };
+  }, []);
+
+  // Effect to handle authentication changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("🔐 User authenticated:", username);
+    } else {
+      console.log("🔐 User not authenticated");
+    }
+  }, [isAuthenticated, username]);
+
+  // Background device status monitoring - REMOVED (redundant with backend monitoring)
+  // The backend already checks all device statuses every 3 minutes via background tasks
+  // No need for frontend to duplicate this functionality
+  
+  // Background polling to detect backend monitoring updates
   useEffect(() => {
     if (!selectedNetworkId) return;
     
-    console.log("🔄 Setting up background device monitoring for network:", selectedNetworkId);
+    console.log("🔄 Setting up background polling to detect backend monitoring updates");
     
-    // Initial fetch
-    fetchDevices(selectedNetworkId);
-    
-    // Set up background polling every 3 minutes
+    // Poll every 2 minutes to catch backend monitoring updates (which happen every 3 minutes)
     const interval = setInterval(async () => {
       try {
-        console.log("🔄 Auto-refreshing device statuses...");
-        setBackgroundMonitoring(prev => ({
-          ...prev,
-          isActive: true,
-          lastChecked: new Date()
-        }));
-        
-        // Use the device service to refresh all device statuses
-        await deviceService.refreshAllDeviceStatuses(selectedNetworkId);
-        
-        // Fetch updated devices
+        console.log("🔄 Background polling: checking for backend monitoring updates...");
+        console.log("🔄 Background polling: calling fetchDevices for network:", selectedNetworkId);
         await fetchDevices(selectedNetworkId);
-        
-        // Calculate next check time
-        const nextCheck = new Date(Date.now() + backgroundMonitoring.interval);
-        setBackgroundMonitoring(prev => ({
-          ...prev,
-          isActive: false,
-          nextCheck: nextCheck
-        }));
-        
-        console.log("✅ Auto-refresh completed successfully");
+        console.log("🔄 Background polling: fetchDevices completed");
       } catch (err) {
-        console.log("❌ Auto-refresh failed:", err);
-        setBackgroundMonitoring(prev => ({
-          ...prev,
-          isActive: false
-        }));
+        console.log("❌ Background polling failed:", err);
       }
-    }, backgroundMonitoring.interval);
+    }, 120000); // 2 minutes = 120,000 ms
     
     // Cleanup interval on unmount or network change
     return () => {
-      console.log("🛑 Clearing background monitoring interval");
+      console.log("🛑 Clearing background polling interval");
       clearInterval(interval);
     };
-  }, [selectedNetworkId, backgroundMonitoring.interval]);
+  }, [selectedNetworkId, fetchDevices]);
+
+  // Simple effect to fetch devices when component mounts or network changes
+  useEffect(() => {
+    if (selectedNetworkId) {
+      console.log("🔄 Fetching devices for network:", selectedNetworkId);
+      fetchDevices(selectedNetworkId);
+    }
+  }, [selectedNetworkId, fetchDevices]);
+  
+  // useEffect(() => {
+  //   if (!selectedNetworkId) return;
+  //   
+  //   console.log("🔄 Setting up background device monitoring for network:", selectedNetworkId);
+  //   
+  //   // Initial fetch
+  //   fetchDevices(selectedNetworkId);
+  //   
+  //   // Set up background polling every 3 minutes
+  //   const interval = setInterval(async () => {
+  //     try {
+  //       console.log("🔄 Auto-refreshing device statuses...");
+  //       setBackgroundMonitoring(prev => ({
+  //         ...prev,
+  //         isActive: true,
+  //         lastChecked: new Date()
+  //       }));
+  //       
+  //       // Use the device service to refresh all device statuses
+  //       await deviceService.refreshAllDeviceStatuses(selectedNetworkId);
+  //       
+  //       // Fetch updated devices
+  //       await fetchDevices(selectedNetworkId);
+  //       
+  //       // Calculate next check time
+  //       const nextCheck = new Date(Date.now() + backgroundMonitoring.interval);
+  //       setBackgroundMonitoring(prev => ({
+  //         ...prev,
+  //         isActive: false,
+  //         nextCheck: nextCheck
+  //       }));
+  //       
+  //       console.log("✅ Auto-refresh completed successfully");
+  //     } catch (err) {
+  //       console.log("❌ Auto-refresh failed:", err);
+  //       setBackgroundMonitoring(prev => ({
+  //         ...prev,
+  //         isActive: false
+  //       }));
+  //     }
+  //   }, backgroundMonitoring.interval);
+  //   
+  //   // Cleanup interval on unmount or network change
+  //   return () => {
+  //     console.log("🛑 Clearing background monitoring interval");
+  //     clearInterval(interval);
+  //   };
+  // }, [selectedNetworkId, backgroundMonitoring.interval]);
 
   // Discovery functions
   const handleStartDiscovery = async (e) => {
@@ -721,7 +776,7 @@ export default function DeviceManager({ selectedOrgId, selectedNetworkId }) {
           refreshingDevices={refreshingDevices}
           selectedOrgId={selectedOrgId}
           selectedNetworkId={selectedNetworkId}
-          backgroundMonitoring={backgroundMonitoring}
+          // backgroundMonitoring prop removed - no longer needed
         />
 
             {/* Edit/Add Modal */}

@@ -74,7 +74,7 @@ const useModalState = (networkId) => {
     }
   }, [networkId]);
 
-  // Refresh device information
+  // Refresh device information using agent-based discovery
   const handleRefreshDeviceInfo = useCallback(async () => {
     if (!deviceInfoModal.data || !deviceInfoModal.data.id) return;
     
@@ -86,13 +86,59 @@ const useModalState = (networkId) => {
       }));
 
       const deviceId = deviceInfoModal.data.id.replace('device_', '');
-      const deviceInfo = await topologyService.getDeviceInfo(networkId, deviceId);
       
-      setDeviceInfoModal(prev => ({
-        ...prev,
-        loading: false,
-        data: { ...prev.data, ...deviceInfo }
-      }));
+      // Import deviceService to use the new refresh function
+      const { deviceService } = await import('../services/deviceService');
+      
+      // Start agent-based device refresh
+      console.log("🔄 Starting agent-based device refresh for device:", deviceId);
+      const refreshResult = await deviceService.refreshDevice(deviceId);
+      
+      if (refreshResult) {
+        console.log("✅ Device refresh completed:", refreshResult);
+        
+        // After refresh, fetch the updated device info from the database
+        // This will include the latest data from the agent discovery
+        const devicesResponse = await fetch(`/api/v1/devices/devices/?network_id=${networkId}`);
+        const devicesData = await devicesResponse.json();
+        const updatedDevice = devicesData.find(d => d.id === parseInt(deviceId));
+        
+        if (updatedDevice) {
+          // Also fetch topology data to get MIB-2 information
+          try {
+            const topologyResponse = await fetch(`/api/v1/topology/${networkId}/device/${deviceId}`);
+            const topologyData = await topologyResponse.json();
+            
+            // Merge device and topology data
+            const mergedData = {
+              ...updatedDevice,
+              agent_discovered_info: {
+                ...topologyData,
+                ping_status: updatedDevice.ping_status,
+                snmp_status: updatedDevice.snmp_status,
+                is_active: updatedDevice.is_active
+              }
+            };
+            
+            setDeviceInfoModal(prev => ({
+              ...prev,
+              loading: false,
+              data: mergedData
+            }));
+          } catch (topologyError) {
+            console.warn("Could not fetch topology data, using device data only:", topologyError);
+            setDeviceInfoModal(prev => ({
+              ...prev,
+              loading: false,
+              data: updatedDevice
+            }));
+          }
+        } else {
+          throw new Error('Could not find updated device data');
+        }
+      } else {
+        throw new Error('Device refresh failed');
+      }
 
     } catch (err) {
       console.error('Error refreshing device info:', err);

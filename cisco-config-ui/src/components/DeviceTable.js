@@ -15,8 +15,7 @@ export const DeviceTable = ({
   userTier,
   refreshingDevices = new Set(),
   selectedOrgId,
-  selectedNetworkId,
-  backgroundMonitoring
+  selectedNetworkId
 }) => {
   if (isLoading) {
     return <LoadingStateRow />;
@@ -29,33 +28,6 @@ export const DeviceTable = ({
 
   return (
     <div className="device-inventory-table-container">
-      {/* Background Monitoring Status Bar */}
-      {backgroundMonitoring && (
-        <div className="background-monitoring-status">
-          <div className="status-info">
-            <span className="status-label">🔄 Auto-monitoring:</span>
-            <span className={`status-indicator ${backgroundMonitoring.isActive ? 'active' : 'idle'}`}>
-              {backgroundMonitoring.isActive ? 'Checking devices...' : 'Active'}
-            </span>
-          </div>
-          <div className="status-details">
-            {backgroundMonitoring.lastChecked && (
-              <span className="last-checked">
-                Last checked: {new Date(backgroundMonitoring.lastChecked).toLocaleTimeString()}
-              </span>
-            )}
-            {backgroundMonitoring.nextCheck && (
-              <span className="next-check">
-                Next check: {new Date(backgroundMonitoring.nextCheck).toLocaleTimeString()}
-              </span>
-            )}
-            <span className="interval-info">
-              Checking every 3 minutes
-            </span>
-          </div>
-        </div>
-      )}
-      
       <table className="device-inventory-table">
         <thead>
           <tr>

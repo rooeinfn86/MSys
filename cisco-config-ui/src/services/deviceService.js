@@ -204,6 +204,32 @@ export const deviceService = {
     }
   },
 
+  // Refresh single device using agent-based discovery
+  async refreshDevice(deviceId) {
+    try {
+      console.log("🔄 Refreshing device using agent-based discovery:", deviceId);
+      
+      // Call the new refresh endpoint
+      const response = await api.post(`/api/v1/devices/devices/${deviceId}/refresh`);
+      
+      if (response.data) {
+        console.log("✅ Device refresh started:", response.data);
+        
+        // Wait for agent to process the request (give it time to poll and process)
+        console.log("⏳ Waiting for agent to process device refresh...");
+        await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
+        
+        // Return the response data which includes session_id and agent_id
+        return response.data;
+      }
+      
+      throw new Error('Failed to start device refresh');
+    } catch (error) {
+      console.error('❌ Error refreshing device:', error);
+      throw error;
+    }
+  },
+
   // Topology-related device operations
   async getDeviceFromTopology(networkId, deviceId) {
     try {

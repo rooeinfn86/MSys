@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { deviceService } from '../services/deviceService';
 
-export const useDeviceActions = (selectedNetworkId, fetchDevices) => {
+export const useDeviceActions = (selectedNetworkId, fetchDevices, updateLastCheckTime) => {
   const [showForm, setShowForm] = useState(false);
   const [editingDeviceId, setEditingDeviceId] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -181,6 +181,11 @@ export const useDeviceActions = (selectedNetworkId, fetchDevices) => {
         
         // Re-fetch the entire device list to ensure we have the latest status
         await fetchDevices(selectedNetworkId);
+        
+        // Update last check time after successful manual refresh
+        if (updateLastCheckTime) {
+          updateLastCheckTime();
+        }
         
         console.log("✅ Device list refreshed successfully");
       }

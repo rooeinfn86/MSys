@@ -6,7 +6,10 @@ from app.core.dependencies import get_current_user
 from app.services.device_service import DeviceService
 from app.services.permission_service import PermissionService
 from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceResponse, DeviceListResponse
-from app.models.base import User
+from app.models.base import User, Device, Agent, AgentNetworkAccess
+from app.api.v1.endpoints.agents import pending_discovery_requests
+import uuid
+from datetime import datetime, timezone
 
 router = APIRouter(tags=["Device CRUD"])
 
@@ -185,43 +188,112 @@ def update_device(
         print(f"Error updating device: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/devices/{device_id}", status_code=204)
-def delete_device(
+@router.delete("/devices/{device_id}")
+async def delete_device(
     device_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Delete a device if user has permission."""
+    """Delete a device"""
     try:
-        # Get the full user object from the database
-        user = db.query(User).filter(User.id == current_user["user_id"]).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        # Check permissions
-        permission_service = PermissionService(db)
-        if not permission_service.check_device_deletion_permission(user):
-            raise HTTPException(status_code=403, detail="Not authorized to delete devices")
-
-        # Get device and check access
         device_service = DeviceService(db)
-        device = device_service.get_device_by_id(device_id)
+        await device_service.delete_device(device_id, current_user)
+        return {"message": "Device deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/devices/{device_id}/refresh")
+async def refresh_device(
+    device_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Refresh a single device using agent-based discovery"""
+    try:
+        from app.services.device_service import DeviceService
+        from app.models.base import Device, Agent, AgentNetworkAccess
+        from app.api.v1.endpoints.agents import pending_discovery_requests
+        import uuid
+        from datetime import datetime, timezone
+        
+        # Get the device
+        device = db.query(Device).filter(Device.id == device_id).first()
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
-
+        
         # Check network access
-        network = permission_service.check_network_access(user, device.network_id)
+        permission_service = PermissionService(db)
+        network = permission_service.check_network_access(current_user, device.network_id)
         if not network:
-            raise HTTPException(status_code=403, detail="Not authorized to delete devices in this network")
-
-        # Delete device using service
-        device_service.delete_device(device_id)
+            raise HTTPException(status_code=403, detail="No access to this network")
+        
+        # Get available ONLINE agents for this network
+        online_agents = db.query(Agent).join(AgentNetworkAccess).filter(
+            AgentNetworkAccess.network_id == device.network_id,
+            Agent.status == "online",
+            Agent.token_status == "active"
+        ).all()
+        
+        if not online_agents:
+            raise HTTPException(status_code=503, detail="No online agents available for this network")
+        
+        # Use the first available online agent
+        agent = online_agents[0]
+        agent_id = agent.id
+        
+        # Create a session ID for tracking this refresh
+        session_id = f"device_refresh_{uuid.uuid4().hex[:8]}"
+        
+        # Prepare device data for agent (same structure as background monitoring)
+        device_data = []
+        
+        # Check if device has SNMP configuration
+        snmp_config = None
+        if hasattr(device, 'snmp_config') and device.snmp_config:
+            snmp_config = {
+                'snmp_version': device.snmp_config.snmp_version,
+                'community': device.snmp_config.community,
+                'username': device.snmp_config.username,
+                'auth_protocol': device.snmp_config.auth_protocol,
+                'auth_password': device.snmp_config.auth_password,
+                'priv_protocol': device.snmp_config.priv_protocol,
+                'priv_password': device.snmp_config.priv_password,
+                'port': device.snmp_config.port
+            }
+        
+        device_info = {
+            'id': device.id,
+            'ip': device.ip,
+            'name': device.name if hasattr(device, 'name') else "",
+            'network_id': device.network_id,
+            'company_id': device.company_id,
+            'snmp_config': snmp_config
+        }
+        device_data.append(device_info)
+        
+        # Store refresh request for agent to pick up (same as background monitoring)
+        refresh_request = {
+            "type": "status_test",  # Same type as background monitoring
+            "session_id": session_id,
+            "network_id": device.network_id,
+            "devices": device_data,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source": "device_refresh"  # Different source to distinguish from background
+        }
+        
+        pending_discovery_requests[agent_id] = refresh_request
+        
+        return {
+            "message": "Device refresh started",
+            "session_id": session_id,
+            "agent_id": agent_id,
+            "device_id": device_id
+        }
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error deleting device: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to start device refresh: {str(e)}")
 
 @router.get("/devices/all", response_model=List[DeviceResponse])
 def get_all_devices(

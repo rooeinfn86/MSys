@@ -102,6 +102,26 @@ class DeviceStatusService:
             if not device:
                 raise ValueError("Device not found")
 
+            # Check if device was recently checked by background monitoring (within last 2 minutes)
+            if device.updated_at:
+                time_since_last_check = datetime.now(timezone.utc) - device.updated_at
+                if time_since_last_check.total_seconds() < 120:  # 2 minutes
+                    print(f"[SMART REFRESH] Device {device_id} was checked {time_since_last_check.total_seconds():.0f}s ago, skipping redundant check")
+                    # Return current status without requesting new check
+                    current_ping = bool(device.ping_status) if device.ping_status is not None else False
+                    current_snmp = bool(device.snmp_status) if device.snmp_status is not None else False
+                    
+                    return {
+                        "status": "recent",
+                        "message": f"Device status was recently checked ({time_since_last_check.total_seconds():.0f}s ago)",
+                        "ping": current_ping,
+                        "snmp": current_snmp,
+                        "ip": device.ip,
+                        "last_checked": device.updated_at.isoformat(),
+                        "device_id": device_id,
+                        "skip_reason": "recently_checked"
+                    }
+
             # Check if we should use agent-based status checking
             if await self._try_agent_based_status_check(device_id, device.network_id):
                 print(f"[AGENT] Status refresh requested for device {device_id} via agent")
