@@ -1,9 +1,9 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
-from app.models.base import Network, Device, Agent
+from app.models.base import Network, Device, Agent, AgentNetworkAccess
 from app.api.v1.endpoints.agents import pending_discovery_requests
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,8 @@ async def background_device_monitoring():
                 
                 logger.info(f"Found {len(active_networks)} active networks to check")
                 
+                total_devices_checked = 0
+                
                 for network in active_networks:
                     try:
                         logger.info(f"Checking devices in network: {network.name} (ID: {network.id})")
@@ -36,22 +38,27 @@ async def background_device_monitoring():
                             logger.info(f"No devices found in network {network.name}, skipping...")
                             continue
                         
-                        # Get available agents for this network
-                        agents = db.query(Agent).filter(Agent.network_id == network.id).all()
+                        # Get available ONLINE agents for this network
+                        online_agents = db.query(Agent).join(AgentNetworkAccess).filter(
+                            AgentNetworkAccess.network_id == network.id,
+                            Agent.status == "online",
+                            Agent.token_status == "active"
+                        ).all()
                         
-                        if not agents:
-                            logger.warning(f"No agents available for network {network.name}, skipping...")
+                        if not online_agents:
+                            logger.warning(f"No online agents available for network {network.name}, skipping...")
                             continue
                         
-                        # Use the first available agent
-                        agent = agents[0]
+                        # Use the first available online agent
+                        agent = online_agents[0]
                         agent_id = agent.id
+                        logger.info(f"Using agent {agent.name} (ID: {agent_id}) for network {network.name}")
                         
                         # Create a session ID for tracking this status refresh
                         import uuid
                         session_id = f"background_status_{uuid.uuid4().hex[:8]}"
                         
-                        # Prepare device data for agent
+                        # Prepare complete device data for agent
                         device_data = []
                         for device in devices:
                             # Check if device has SNMP configuration
@@ -60,11 +67,23 @@ async def background_device_monitoring():
                                 snmp_config = {
                                     'snmp_version': device.snmp_config.snmp_version,
                                     'community': device.snmp_config.community,
+                                    'username': device.snmp_config.username,
+                                    'auth_protocol': device.snmp_config.auth_protocol,
+                                    'auth_password': device.snmp_config.auth_password,
+                                    'priv_protocol': device.snmp_config.priv_protocol,
+                                    'priv_password': device.snmp_config.priv_password,
                                     'port': device.snmp_config.port
                                 }
+                                logger.debug(f"Device {device.ip} has SNMP config: {snmp_config}")
+                            else:
+                                logger.debug(f"Device {device.ip} has no SNMP config")
                             
                             device_info = {
+                                'id': device.id,
                                 'ip': device.ip,
+                                'name': device.name if hasattr(device, 'name') else "",
+                                'network_id': device.network_id,
+                                'company_id': device.company_id,
                                 'snmp_config': snmp_config
                             }
                             device_data.append(device_info)
@@ -75,11 +94,13 @@ async def background_device_monitoring():
                             "session_id": session_id,
                             "network_id": network.id,
                             "devices": device_data,
-                            "timestamp": datetime.utcnow().isoformat()
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "source": "background_monitoring"
                         }
                         
                         pending_discovery_requests[agent_id] = status_request
-                        logger.info(f"✅ Background status check requested for network {network.name} with {len(devices)} devices")
+                        total_devices_checked += len(devices)
+                        logger.info(f"✅ Background status check requested for network {network.name} with {len(devices)} devices via agent {agent.name}")
                         
                     except Exception as network_error:
                         logger.error(f"❌ Error checking network {network.name}: {network_error}")
@@ -88,7 +109,7 @@ async def background_device_monitoring():
             finally:
                 db.close()
                 
-            logger.info("🔄 Background device status check completed")
+            logger.info(f"🔄 Background device status check completed. Total devices checked: {total_devices_checked}")
             
         except Exception as e:
             logger.error(f"❌ Background monitoring error: {e}")
