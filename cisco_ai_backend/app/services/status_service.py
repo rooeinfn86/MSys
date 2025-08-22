@@ -205,9 +205,7 @@ class DeviceStatusService:
                 # Create a status test request
                 request_id = f"status_test_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{agent.id}"
                 
-                if agent.id not in pending_discovery_requests:
-                    pending_discovery_requests[agent.id] = []
-                
+                # Store the request directly (not in a list) to match existing pattern
                 status_request = {
                     "type": "status_test",
                     "request_id": request_id,
@@ -216,7 +214,7 @@ class DeviceStatusService:
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 
-                pending_discovery_requests[agent.id].append(status_request)
+                pending_discovery_requests[agent.id] = status_request
                 print(f"[AGENT] Status test request {request_id} queued for agent {agent.id}")
                 
                 # Request agent to test device status

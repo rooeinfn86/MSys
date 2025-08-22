@@ -3255,11 +3255,26 @@ async def get_pending_discovery_requests(
             # Remove the request so it's only processed once
             del pending_discovery_requests[agent_id]
             
-            # Log the request type and details safely
-            request_type = request.get('type', 'unknown')
-            session_id = request.get('session_id', 'no-session-id')
-            logger.info(f"🔍 DEBUG: Returning pending {request_type} request for agent {agent_id}: {session_id}")
-            return [request]
+            # Handle both list and single object structures
+            if isinstance(request, list):
+                # If it's a list, take the first request and return it
+                if request:
+                    actual_request = request[0]
+                    # Log the request type and details safely
+                    request_type = actual_request.get('type', 'unknown')
+                    session_id = actual_request.get('session_id', 'no-session-id')
+                    logger.info(f"🔍 DEBUG: Returning pending {request_type} request for agent {agent_id}: {session_id}")
+                    return [actual_request]
+                else:
+                    logger.info(f"🔍 DEBUG: Empty list found for agent {agent_id}")
+                    return []
+            else:
+                # If it's a single object, handle it directly
+                # Log the request type and details safely
+                request_type = request.get('type', 'unknown')
+                session_id = request.get('session_id', 'no-session-id')
+                logger.info(f"🔍 DEBUG: Returning pending {request_type} request for agent {agent_id}: {session_id}")
+                return [request]
         
         logger.info(f"🔍 DEBUG: No pending discovery requests found for agent {agent_id}")
         return []
