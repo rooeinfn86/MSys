@@ -211,6 +211,23 @@ class DeviceStatusService:
                     print(f"[AGENT] Device {device_id} not found, falling back to direct check")
                     return False
                 
+                # Get SNMP configuration if available
+                snmp_config = None
+                if hasattr(device, 'snmp_config') and device.snmp_config:
+                    snmp_config = {
+                        'snmp_version': device.snmp_config.snmp_version,
+                        'community': device.snmp_config.community,
+                        'username': device.snmp_config.username,
+                        'auth_protocol': device.snmp_config.auth_protocol,
+                        'auth_password': device.snmp_config.auth_password,
+                        'priv_protocol': device.snmp_config.priv_protocol,
+                        'priv_password': device.snmp_config.priv_password,
+                        'port': device.snmp_config.port
+                    }
+                    print(f"[AGENT] SNMP config found for device {device_id}: {snmp_config}")
+                else:
+                    print(f"[AGENT] No SNMP config found for device {device_id}")
+                
                 # Store the request directly (not in a list) to match existing pattern
                 status_request = {
                     "type": "status_test",
@@ -221,7 +238,8 @@ class DeviceStatusService:
                         "ip": device.ip,
                         "name": device.name if hasattr(device, 'name') else "",
                         "network_id": device.network_id,
-                        "company_id": device.company_id
+                        "company_id": device.company_id,
+                        "snmp_config": snmp_config  # Include SNMP configuration
                     }],  # Provide complete device information
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
