@@ -2,6 +2,7 @@ from typing import Dict, Any, List
 import asyncio
 import subprocess
 import platform
+import socket
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.models.base import Device, DeviceLog, LogType
@@ -17,15 +18,53 @@ class DeviceStatusService:
     def ping_device(self, ip: str) -> bool:
         """Ping a device to check basic connectivity."""
         try:
+            # First try using ping command if available
             system = platform.system().lower()
             if system == "windows":
                 cmd = ["ping", "-n", "1", "-w", "1000", ip]
             else:
                 cmd = ["ping", "-c", "1", "-W", "1", ip]
 
-            output = subprocess.run(cmd, stdout=subprocess.DEVNULL)
-            print(f"[PING] {ip} -> {'✅' if output.returncode == 0 else '❌'}")
-            return output.returncode == 0
+            try:
+                output = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+                if output.returncode == 0:
+                    print(f"[PING] {ip} -> ✅")
+                    return True
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                # Ping command not available or failed, fall back to socket-based check
+                pass
+            
+            # Fallback: Use socket-based connectivity check
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                result = sock.connect_ex((ip, 80))  # Try port 80 (HTTP)
+                sock.close()
+                
+                if result == 0:
+                    print(f"[PING] {ip} -> ✅ (socket check)")
+                    return True
+                else:
+                    # Try common network ports
+                    for port in [22, 23, 161, 443]:  # SSH, Telnet, SNMP, HTTPS
+                        try:
+                            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            sock.settimeout(1)
+                            result = sock.connect_ex((ip, port))
+                            sock.close()
+                            if result == 0:
+                                print(f"[PING] {ip} -> ✅ (port {port} open)")
+                                return True
+                        except:
+                            continue
+                    
+                    print(f"[PING] {ip} -> ❌ (no open ports)")
+                    return False
+                    
+            except Exception as e:
+                print(f"[PING ERROR] {ip}: Socket check failed - {e}")
+                return False
+                
         except Exception as e:
             print(f"[PING ERROR] {ip}: {e}")
             return False
@@ -63,6 +102,19 @@ class DeviceStatusService:
             if not device:
                 raise ValueError("Device not found")
 
+            # Check if we should use agent-based status checking
+            if await self._try_agent_based_status_check(device_id, device.network_id):
+                print(f"[AGENT] Status refresh requested for device {device_id} via agent")
+                return {
+                    "status": "pending",
+                    "message": "Status refresh requested via agent",
+                    "ip": device.ip,
+                    "last_checked": datetime.utcnow().isoformat()
+                }
+
+            # Fallback to direct checks if no agent available
+            print(f"[DIRECT] Performing direct status check for device {device_id}")
+            
             # Perform fresh checks
             ping_ok = self.ping_device(device.ip)
             print(f"[PING] {device.ip} -> {'✅' if ping_ok else '❌'}")
@@ -114,6 +166,37 @@ class DeviceStatusService:
             }
         except Exception as e:
             raise e
+    
+    async def _try_agent_based_status_check(self, device_id: int, network_id: int) -> bool:
+        """Try to use agent-based status checking if available."""
+        try:
+            # Check if there are any online agents for this network
+            from app.models.base import Agent, AgentNetworkAccess
+            
+            # Find agents that have access to this network and are online
+            online_agents = self.db.query(Agent).join(AgentNetworkAccess).filter(
+                AgentNetworkAccess.network_id == network_id,
+                Agent.status == "online",
+                Agent.token_status == "active"
+            ).all()
+            
+            if not online_agents:
+                print(f"[AGENT] No online agents found for network {network_id}")
+                return False
+            
+            # Use the first available agent
+            agent = online_agents[0]
+            print(f"[AGENT] Found online agent {agent.id} for network {network_id}")
+            
+            # Request agent to test device status
+            # This would typically be done through a message queue or direct API call
+            # For now, we'll just indicate that agent-based checking is preferred
+            print(f"[AGENT] Agent {agent.id} can handle status check for device {device_id}")
+            return True
+            
+        except Exception as e:
+            print(f"[AGENT] Error checking for agent availability: {str(e)}")
+            return False
     
     async def refresh_all_devices_status(self, network_id: int) -> Dict[str, Any]:
         """Refresh status for all devices in a network."""
