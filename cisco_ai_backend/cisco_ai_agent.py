@@ -2488,19 +2488,42 @@ class CiscoAIAgent:
         try:
             snmp_devices = self.snmp_discovery(subnet)
             devices.extend(snmp_devices)
+            logger.info(f"[AUTO DISCOVERY] SNMP discovery found {len(snmp_devices)} devices")
         except Exception as e:
             logger.warning(f"SNMP discovery failed: {e}")
         
-        # Try SSH discovery for devices not found via SNMP
+        # Always try SSH discovery for ALL IPs to get credentials
         try:
             ssh_devices = self.ssh_discovery(subnet)
-            # Filter out devices already discovered via SNMP
+            logger.info(f"[AUTO DISCOVERY] SSH discovery found {len(ssh_devices)} devices")
+            
+            # Merge SSH credentials with SNMP devices
+            for snmp_device in devices:
+                snmp_ip = snmp_device.get('ip_address')
+                # Look for matching SSH device to get credentials
+                for ssh_device in ssh_devices:
+                    if ssh_device.get('ip_address') == snmp_ip:
+                        # Merge SSH credentials into SNMP device
+                        snmp_device['credentials'] = ssh_device.get('credentials', {})
+                        snmp_device['discovery_method'] = 'enhanced'  # Both SNMP and SSH
+                        snmp_device['capabilities'] = ['snmp', 'ssh']
+                        logger.info(f"[AUTO DISCOVERY] Merged SSH credentials for {snmp_ip}: {snmp_device.get('credentials')}")
+                        break
+                else:
+                    # No SSH credentials found, keep as SNMP-only
+                    snmp_device['capabilities'] = ['snmp']
+                    logger.info(f"[AUTO DISCOVERY] No SSH credentials found for {snmp_ip}, keeping as SNMP-only")
+            
+            # Add SSH-only devices (not found via SNMP)
             existing_ips = {device['ip_address'] for device in devices}
             new_ssh_devices = [d for d in ssh_devices if d['ip_address'] not in existing_ips]
             devices.extend(new_ssh_devices)
+            logger.info(f"[AUTO DISCOVERY] Added {len(new_ssh_devices)} SSH-only devices")
+            
         except Exception as e:
             logger.warning(f"SSH discovery failed: {e}")
         
+        logger.info(f"[AUTO DISCOVERY] Total devices found: {len(devices)}")
         return devices
     
     def snmp_discovery(self, subnet: str) -> List[Dict]:
@@ -2588,6 +2611,8 @@ class CiscoAIAgent:
             ('cisco', 'password')
         ]
         
+        logger.info(f"[SSH DISCOVERY] Starting SSH discovery for subnet {subnet} with {len(credentials)} credential sets")
+        
         # Scan subnet for SSH services
         network_parts = subnet.split('.')
         base_ip = '.'.join(network_parts[:-1])
@@ -2597,16 +2622,20 @@ class CiscoAIAgent:
             
             for username, password in credentials:
                 try:
+                    logger.debug(f"[SSH DISCOVERY] Trying {ip_address} with username='{username}', password={'*' * len(password)}")
                     device_info = self.ssh_get_device_info(ip_address, username, password)
                     if device_info:
                         device_info['discovery_method'] = 'ssh'
                         device_info['credentials'] = {'username': username, 'password': password}
                         devices.append(device_info)
+                        logger.info(f"[SSH DISCOVERY] Successfully discovered {ip_address} with credentials username='{username}', password={'*' * len(password)}")
                         break  # Found device, try next IP
                         
                 except Exception as e:
+                    logger.debug(f"[SSH DISCOVERY] Failed {ip_address} with username='{username}': {e}")
                     continue  # Try next credentials
         
+        logger.info(f"[SSH DISCOVERY] SSH discovery completed, found {len(devices)} devices")
         return devices
     
     def ssh_get_device_info(self, ip_address: str, username: str, password: str) -> Optional[Dict]:
