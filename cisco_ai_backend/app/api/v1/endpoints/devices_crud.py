@@ -9,6 +9,7 @@ from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceResponse, Devic
 from app.models.base import User, Device, Agent, AgentNetworkAccess
 from app.api.v1.endpoints.agents import pending_discovery_requests
 import uuid
+import asyncio
 from datetime import datetime, timezone
 
 router = APIRouter(tags=["Device CRUD"])
@@ -283,33 +284,55 @@ async def refresh_device(
         }
         device_data.append(device_info)
         
-        # Use the proper agent discovery endpoint instead of status test
-        print(f"🔍 Using agent discovery endpoint for full device refresh")
+        # Use the exact same DiscoveryService as auto-discovery
+        print(f"🔍 Using DiscoveryService for full device discovery refresh (same as auto-discovery)")
         
-        # Import the agent discovery service
-        from app.services.agent_topology_discovery import AgentTopologyDiscoveryService
+        # Import the same DiscoveryService that auto-discovery uses
+        from app.services.discovery_service import DiscoveryService
         
-        # Start full topology discovery on the agent
-        discovery_service = AgentTopologyDiscoveryService(db)
-        discovery_started = discovery_service.start_discovery(
-            agent_id=agent_id,
-            network_id=device.network_id,
-            discovery_type="full"
-        )
+        # Create credentials and SNMP config from the existing device
+        credentials = {
+            'username': device.username,
+            'password': device.password
+        }
         
-        if discovery_started:
-            print(f"✅ Full device discovery refresh started on agent {agent_id}")
-            print(f"🔍 Agent will perform complete SNMP/SSH discovery and update both database tables")
-            
-            return {
-                "message": "Full device discovery refresh started",
-                "session_id": session_id,
-                "agent_id": agent_id,
-                "device_id": device_id,
-                "discovery_type": "full"
+        # Get SNMP config from the device
+        snmp_config = None
+        if hasattr(device, 'snmp_config') and device.snmp_config:
+            snmp_config = {
+                'snmp_version': device.snmp_config.snmp_version,
+                'community': device.snmp_config.community,
+                'username': device.snmp_config.username,
+                'auth_protocol': device.snmp_config.auth_protocol,
+                'auth_password': device.snmp_config.auth_password,
+                'priv_protocol': device.snmp_config.priv_protocol,
+                'priv_password': device.snmp_config.priv_password,
+                'port': device.snmp_config.port
             }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to start agent discovery")
+        
+        # Create discovery service instance
+        discovery_service = DiscoveryService(db)
+        
+        # Start discovery for single device (same process as auto-discovery)
+        # This will update both devices and device_topology tables
+        print(f"🔍 Starting DiscoveryService.start_discovery for device {device.ip}")
+        asyncio.create_task(discovery_service.start_discovery(
+            network_id=device.network_id,
+            ip_range=device.ip,  # Single IP instead of range
+            credentials=credentials,
+            snmp_config=snmp_config
+        ))
+        
+        print(f"✅ Full device discovery refresh started using DiscoveryService")
+        print(f"🔍 This will perform complete SNMP/SSH discovery and update both database tables")
+        
+        return {
+            "message": "Full device discovery refresh started using DiscoveryService",
+            "session_id": session_id,
+            "agent_id": agent_id,
+            "device_id": device_id,
+            "discovery_method": "DiscoveryService"
+        }
         
     except HTTPException:
         raise
