@@ -2395,6 +2395,12 @@ async def start_discovery_on_agent(agent: Agent, session_id: str, discovery_data
         global pending_discovery_requests
         pending_discovery_requests[agent.id] = agent_discovery_request
         
+        # Debug: Log what credentials are being stored
+        logger.info(f"🔍 Storing discovery request for agent {agent.id} with credentials: {agent_discovery_request.get('credentials')}")
+        logger.info(f"🔍 Credentials type: {type(agent_discovery_request.get('credentials'))}")
+        logger.info(f"🔍 Credentials keys: {list(agent_discovery_request.get('credentials', {}).keys()) if agent_discovery_request.get('credentials') else 'None'}")
+        logger.info(f"🔍 Full discovery request: {agent_discovery_request}")
+        
         # Also store the network_id in the discovery session immediately
         global discovery_sessions
         if session_id not in discovery_sessions:
@@ -2507,10 +2513,30 @@ async def submit_discovery_results(
         network_id = None
         global pending_discovery_requests
         if agent_id in pending_discovery_requests:
-            pending_request = pending_discovery_requests[agent_id]
-            if pending_request.get("session_id") == session_id:
-                network_id = pending_request.get("network_id")
-                logger.info(f"Found network_id {network_id} from pending discovery request for session {session_id}")
+            request = pending_discovery_requests[agent_id]
+            # Don't delete the request yet - keep it for credential storage during results processing
+            # del pending_discovery_requests[agent_id]  # REMOVED: This was causing credential loss
+            
+            # Handle both list and single object structures
+            if isinstance(request, list):
+                # If it's a list, take the first request and return it
+                if request:
+                    actual_request = request[0]
+                    # Log the request type and details safely
+                    request_type = actual_request.get('type', 'unknown')
+                    session_id = actual_request.get('session_id', 'no-session-id')
+                    logger.info(f"🔍 DEBUG: Returning pending {request_type} request for agent {agent_id}: {session_id}")
+                    return [actual_request]
+                else:
+                    logger.info(f"🔍 DEBUG: Empty list found for agent {agent_id}")
+                    return []
+            else:
+                # If it's a single object, handle it directly
+                # Log the request type and details safely
+                request_type = request.get('type', 'unknown')
+                session_id = request.get('session_id', 'no-session-id')
+                logger.info(f"🔍 DEBUG: Returning pending {request_type} request for agent {agent_id}: {session_id}")
+                return [request]
         
         if not network_id and session_id in discovery_sessions:
             # Try to get network_id from the discovery session
@@ -2712,12 +2738,22 @@ async def submit_discovery_results(
                         pending_request = pending_discovery_requests[agent_id]
                         if pending_request.get("session_id") == session_id:
                             credentials = pending_request.get("credentials", {})
+                            logger.info(f"🔍 Found credentials in pending request for existing device {device_ip}: {credentials}")
                             if credentials.get("username") and not existing_device.username:
                                 existing_device.username = credentials.get("username")
-                                logger.info(f"Updated existing device {device_ip} with SSH username: {existing_device.username}")
+                                logger.info(f"✅ Updated existing device {device_ip} with SSH username: {existing_device.username}")
                             if credentials.get("password") and not existing_device.password:
                                 existing_device.password = credentials.get("password")
-                                logger.info(f"Updated existing device {device_ip} with SSH password: {'*' * len(existing_device.password)}")
+                                logger.info(f"✅ Updated existing device {device_ip} with SSH password: {'*' * len(existing_device.password)}")
+                        else:
+                            logger.warning(f"⚠️  Session ID mismatch for existing device {device_ip}: expected {session_id}, got {pending_request.get('session_id')}")
+                    else:
+                        if agent_id not in pending_discovery_requests:
+                            logger.warning(f"⚠️  No pending discovery request found for agent {agent_id}")
+                        elif not pending_discovery_requests[agent_id].get("credentials"):
+                            logger.warning(f"⚠️  No credentials found in pending discovery request for agent {agent_id}")
+                        else:
+                            logger.info(f"ℹ️  Existing device {device_ip} already has credentials: username='{existing_device.username}', password='{'*' * len(existing_device.password) if existing_device.password else 'None'}'")
                     
                     saved_devices.append(existing_device)
                     logger.info(f"Updated existing device: {device_name} ({device_ip}) - Ping: {ping_ok}, SNMP: {snmp_ok}, Method: {discovery_method}")
@@ -2805,6 +2841,15 @@ async def submit_discovery_results(
         try:
             db.commit()
             logger.info(f"Successfully saved {len(saved_devices)} devices to database")
+            
+            # Clean up pending discovery requests after successful processing
+            global pending_discovery_requests
+            if agent_id in pending_discovery_requests:
+                pending_request = pending_discovery_requests[agent_id]
+                if pending_request.get("session_id") == session_id:
+                    logger.info(f"Cleaning up pending discovery request for agent {agent_id}, session {session_id}")
+                    del pending_discovery_requests[agent_id]
+            
         except Exception as e:
             db.rollback()
             logger.error(f"Error committing devices to database: {str(e)}")
@@ -3277,8 +3322,8 @@ async def get_pending_discovery_requests(
         
         if agent_id in pending_discovery_requests:
             request = pending_discovery_requests[agent_id]
-            # Remove the request so it's only processed once
-            del pending_discovery_requests[agent_id]
+            # Don't delete the request yet - keep it for credential storage during results processing
+            # del pending_discovery_requests[agent_id]  # REMOVED: This was causing credential loss
             
             # Handle both list and single object structures
             if isinstance(request, list):
