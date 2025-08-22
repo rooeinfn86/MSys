@@ -232,8 +232,21 @@ async def refresh_device(
                 print(f"🔍 Owner found: {owner.username}")
                 # Use owner's credentials if device doesn't have them
                 device.username = device.username or owner.username
-                device.password = device.password or 'cisco'  # Default password
+                # Don't hardcode passwords - only use what's available
                 print(f"🔍 Updated device credentials - username: '{device.username}', password: '{'*' * len(device.password) if device.password else 'None'}'")
+            else:
+                print(f"⚠️  No owner found for device {device.id}")
+                
+            # Also check if SNMP config has credentials
+            if hasattr(device, 'snmp_config') and device.snmp_config:
+                if device.snmp_config.username and not device.username:
+                    device.username = device.snmp_config.username
+                    print(f"🔍 Using SNMP username: {device.username}")
+                if device.snmp_config.auth_password and not device.password:
+                    device.password = device.snmp_config.auth_password
+                    print(f"🔍 Using SNMP auth password: {'*' * len(device.password)}")
+        else:
+            print(f"✅ Device has credentials - username: '{device.username}', password: {'*' * len(device.password) if device.password else 'None'}")
         
         # Check network access
         print(f"🔍 Checking network access for network ID: {device.network_id}")
@@ -318,8 +331,8 @@ async def refresh_device(
             ip_range=device.ip,  # Single IP for refresh
             discovery_method=discovery_method,
             credentials={
-                'username': device.username or 'cisco',  # Use device username or default
-                'password': device.password or 'cisco'   # Use device password or default
+                'username': device.username or '',  # Use device username or empty
+                'password': device.password or ''   # Use device password or empty
             },
             location=device.location or "",
             device_type="auto"
@@ -327,6 +340,13 @@ async def refresh_device(
         
         print(f"🔍 Device credentials - username: '{device.username}', password: '{'*' * len(device.password) if device.password else 'None'}'")
         print(f"🔍 Using credentials - username: '{discovery_request.credentials['username']}', password: '{'*' * len(discovery_request.credentials['password']) if discovery_request.credentials['password'] else 'None'}'")
+        
+        # Validate that we have credentials before proceeding
+        if not discovery_request.credentials['username'] or not discovery_request.credentials['password']:
+            raise HTTPException(
+                status_code=400, 
+                detail="Device refresh requires valid SSH credentials. Please ensure the device has username and password configured."
+            )
         
         # Call the agent discovery endpoint
         from app.api.v1.endpoints.agents import start_agent_discovery
