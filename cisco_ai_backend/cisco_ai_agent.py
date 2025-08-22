@@ -325,8 +325,8 @@ class CiscoAIAgent:
             # Step 3: Collect MIB-2 information
             mib2_info = self.collect_mib2_information(device_ip, snmp_config)
             
-            # Step 4: Collect basic device information
-            device_info = self.collect_device_information(device_ip, snmp_config)
+            # Step 4: Collect comprehensive device information (same as device inventory auto-discovery)
+            device_info = self.collect_comprehensive_device_info(device_ip, snmp_config)
             
             # Combine all information
             discovery_results = {
@@ -596,8 +596,9 @@ class CiscoAIAgent:
         """Collect comprehensive device information using SSH (same as device inventory auto-discovery)"""
         try:
             # Get SSH credentials from config or use defaults
-            username = self.config.get('ssh_username', 'cisco')
-            password = self.config.get('ssh_password', 'cisco')
+            ssh_config = self.config.get('discovery', {}).get('ssh_credentials', {})
+            username = ssh_config.get('username', 'cisco')
+            password = ssh_config.get('password', 'cisco')
             
             logger.info(f"[COMPREHENSIVE] Attempting SSH connection to {ip_address}")
             
