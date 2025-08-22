@@ -221,6 +221,19 @@ async def refresh_device(
             raise HTTPException(status_code=404, detail="Device not found")
         
         print(f"✅ Device found: {device.name} ({device.ip})")
+        print(f"🔍 Device fields - username: '{device.username}', password: '{'*' * len(device.password) if device.password else 'None'}'")
+        print(f"🔍 Device fields - owner_id: {device.owner_id}, company_id: {device.company_id}")
+        
+        # Check if we need to get credentials from the owner
+        if not device.username or not device.password:
+            print(f"🔍 Device has no credentials, checking owner credentials...")
+            owner = db.query(User).filter(User.id == device.owner_id).first()
+            if owner:
+                print(f"🔍 Owner found: {owner.username}")
+                # Use owner's credentials if device doesn't have them
+                device.username = device.username or owner.username
+                device.password = device.password or 'cisco'  # Default password
+                print(f"🔍 Updated device credentials - username: '{device.username}', password: '{'*' * len(device.password) if device.password else 'None'}'")
         
         # Check network access
         print(f"🔍 Checking network access for network ID: {device.network_id}")
@@ -305,12 +318,15 @@ async def refresh_device(
             ip_range=device.ip,  # Single IP for refresh
             discovery_method=discovery_method,
             credentials={
-                'username': device.username,
-                'password': device.password
+                'username': device.username or 'cisco',  # Use device username or default
+                'password': device.password or 'cisco'   # Use device password or default
             },
             location=device.location or "",
             device_type="auto"
         )
+        
+        print(f"🔍 Device credentials - username: '{device.username}', password: '{'*' * len(device.password) if device.password else 'None'}'")
+        print(f"🔍 Using credentials - username: '{discovery_request.credentials['username']}', password: '{'*' * len(discovery_request.credentials['password']) if discovery_request.credentials['password'] else 'None'}'")
         
         # Call the agent discovery endpoint
         from app.api.v1.endpoints.agents import start_agent_discovery
