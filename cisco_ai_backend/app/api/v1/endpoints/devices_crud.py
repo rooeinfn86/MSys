@@ -283,21 +283,23 @@ async def refresh_device(
         }
         device_data.append(device_info)
         
-        # Store refresh request for agent to pick up (same as background monitoring)
-        print(f"🔍 Creating refresh request for agent {agent_id}")
+        # Store refresh request for agent to pick up (same as auto-discovery)
+        print(f"🔍 Creating full discovery refresh request for agent {agent_id}")
         refresh_request = {
-            "type": "status_test",  # Same type as background monitoring
+            "type": "discovery",  # Same type as auto-discovery (not status_test)
             "session_id": session_id,
             "network_id": device.network_id,
             "devices": device_data,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "source": "device_refresh"  # Different source to distinguish from background
+            "source": "device_refresh",  # Different source to distinguish from background
+            "discovery_method": "refresh"  # Indicates this is a refresh operation
         }
         
-        print(f"🔍 Storing request in pending_discovery_requests")
+        print(f"🔍 Storing full discovery request in pending_discovery_requests")
         pending_discovery_requests[agent_id] = refresh_request
         
-        print(f"✅ Device refresh request successfully queued for agent {agent_id}")
+        print(f"✅ Full device discovery refresh request successfully queued for agent {agent_id}")
+        print(f"🔍 Agent will perform complete SNMP/SSH discovery and update both database tables")
         
         return {
             "message": "Device refresh started",

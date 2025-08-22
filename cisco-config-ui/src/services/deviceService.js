@@ -204,28 +204,29 @@ export const deviceService = {
     }
   },
 
-  // Refresh single device using agent-based discovery
+  // Refresh single device using full agent-based discovery
   async refreshDevice(deviceId) {
     try {
-      console.log("🔄 Refreshing device using agent-based discovery:", deviceId);
+      console.log("🔄 Starting full device discovery refresh using agent:", deviceId);
       
       // Call the new refresh endpoint
       const response = await api.post(`/api/v1/devices/devices/${deviceId}/refresh`);
       
       if (response.data) {
-        console.log("✅ Device refresh started:", response.data);
+        console.log("✅ Full device discovery refresh started:", response.data);
         
-        // Wait for agent to process the request (give it time to poll and process)
-        console.log("⏳ Waiting for agent to process device refresh...");
-        await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
+        // Wait for agent to complete full discovery (SNMP + SSH + MIB-2)
+        console.log("⏳ Waiting for agent to complete full device discovery...");
+        console.log("🔍 Agent will update both devices and device_topology tables");
+        await new Promise(resolve => setTimeout(resolve, 45000)); // Wait 45 seconds for full discovery
         
         // Return the response data which includes session_id and agent_id
         return response.data;
       }
       
-      throw new Error('Failed to start device refresh');
+      throw new Error('Failed to start full device discovery refresh');
     } catch (error) {
-      console.error('❌ Error refreshing device:', error);
+      console.error('❌ Error starting full device discovery refresh:', error);
       throw error;
     }
   },
