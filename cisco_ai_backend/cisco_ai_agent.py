@@ -69,6 +69,9 @@ class CiscoAIAgent:
         self.discovered_devices = {}
         self.discovery_running = False
         
+        # Store current discovery request for credential access
+        self.current_discovery_request = {}
+        
         # Service state
         self.running = False
         
@@ -284,6 +287,9 @@ class CiscoAIAgent:
             snmp_config = request_data.get('snmp_config', {})
             
             logger.info(f"Received full device discovery request: session_id={session_id}, device_id={device_id}, device_ip={device_ip}")
+            
+            # Store the current discovery request for credential access
+            self.current_discovery_request = request_data
             
             # Start full device discovery in background thread
             discovery_thread = threading.Thread(
@@ -595,12 +601,12 @@ class CiscoAIAgent:
     def collect_comprehensive_device_info(self, ip_address: str, snmp_config: Dict) -> Dict:
         """Collect comprehensive device information using SSH (same as device inventory auto-discovery)"""
         try:
-            # Get SSH credentials from config or use defaults
-            ssh_config = self.config.get('discovery', {}).get('ssh_credentials', {})
-            username = ssh_config.get('username', 'cisco')
-            password = ssh_config.get('password', 'cisco')
+            # Get SSH credentials from the discovery request, not from agent config
+            # This ensures we use the actual device credentials from the database
+            username = self.current_discovery_request.get('ssh_credentials', {}).get('username', 'cisco')
+            password = self.current_discovery_request.get('ssh_credentials', {}).get('password', 'cisco')
             
-            logger.info(f"[COMPREHENSIVE] Attempting SSH connection to {ip_address}")
+            logger.info(f"[COMPREHENSIVE] Attempting SSH connection to {ip_address} with credentials from device inventory")
             
             # Try SSH connection
             try:

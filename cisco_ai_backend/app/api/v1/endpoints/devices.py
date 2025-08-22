@@ -2276,6 +2276,10 @@ async def refresh_device_full(
                 "device_id": device_id,
                 "device_ip": device.ip,
                 "snmp_config": snmp_config,
+                "ssh_credentials": {
+                    "username": device.username,
+                    "password": device.password
+                },
                 "timestamp": datetime.utcnow().isoformat()
             }
             
