@@ -223,8 +223,14 @@ async def refresh_device(
         
         # Check network access
         print(f"🔍 Checking network access for network ID: {device.network_id}")
+        
+        # Get the full user object from the database (same as other endpoints)
+        user = db.query(User).filter(User.id == current_user["user_id"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
         permission_service = PermissionService(db)
-        network = permission_service.check_network_access(current_user, device.network_id)
+        network = permission_service.check_network_access(user, device.network_id)
         if not network:
             raise HTTPException(status_code=403, detail="No access to this network")
         
