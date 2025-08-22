@@ -197,16 +197,10 @@ async def delete_device(
 ):
     """Delete a device"""
     try:
-        print(f"🗑️  Starting device deletion for device ID: {device_id}")
-        print(f"🔍 Current user: {current_user}")
-        
         # Get the device first to check permissions
         device = db.query(Device).filter(Device.id == device_id).first()
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
-        
-        print(f"✅ Device found: {device.name} ({device.ip})")
-        print(f"🔍 Device network_id: {device.network_id}, company_id: {device.company_id}")
         
         # Get the full user object from the database
         user = db.query(User).filter(User.id == current_user["user_id"]).first()
@@ -214,25 +208,20 @@ async def delete_device(
             raise HTTPException(status_code=404, detail="User not found")
         
         # Check network access
-        print(f"🔍 Checking network access for network ID: {device.network_id}")
         permission_service = PermissionService(db)
         network = permission_service.check_network_access(user, device.network_id)
         if not network:
             raise HTTPException(status_code=403, detail="No access to this network")
         
-        print(f"✅ Network access verified: {network.name}")
-        
         # Now delete the device
         device_service = DeviceService(db)
         device_service.delete_device(device_id, current_user)
         
-        print(f"✅ Device {device_id} deleted successfully")
         return {"message": "Device deleted successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in delete_device: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete device: {str(e)}")
 
 @router.post("/devices/{device_id}/refresh")
