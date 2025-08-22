@@ -14,4 +14,3 @@ __all__ = [
     "ConfigurationError", "DatabaseError", "ExternalServiceError", "TimeoutError", "InsufficientResourcesError"
 ]
 
-

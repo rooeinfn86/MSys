@@ -74,7 +74,7 @@ const useModalState = (networkId) => {
     }
   }, [networkId]);
 
-  // Refresh device information using agent-based discovery
+  // Refresh device information
   const handleRefreshDeviceInfo = useCallback(async () => {
     if (!deviceInfoModal.data || !deviceInfoModal.data.id) return;
     
@@ -86,77 +86,13 @@ const useModalState = (networkId) => {
       }));
 
       const deviceId = deviceInfoModal.data.id.replace('device_', '');
+      const deviceInfo = await topologyService.getDeviceInfo(networkId, deviceId);
       
-      // Import deviceService to use the new refresh function
-      const { deviceService } = await import('../services/deviceService');
-      
-      // Start full agent-based device discovery refresh
-      console.log("🔄 Starting full agent-based device discovery refresh for device:", deviceId);
-      console.log("🔍 This will perform complete SNMP/SSH discovery and update both database tables");
-      const refreshResult = await deviceService.refreshDevice(deviceId);
-      
-      if (refreshResult) {
-        console.log("✅ Full device discovery refresh completed:", refreshResult);
-        
-        // After full discovery refresh, fetch the completely updated device info
-        // This will include all the latest data from the agent discovery
-        console.log("🔄 Fetching completely updated device data from database...");
-        
-        try {
-          // Use the deviceService to fetch updated devices
-          const updatedDevices = await deviceService.fetchDevices(networkId);
-          const updatedDevice = updatedDevices.find(d => d.id === parseInt(deviceId));
-          
-          if (updatedDevice) {
-            console.log("✅ Found completely updated device data:", updatedDevice);
-            
-            // The agent has performed full discovery and updated both tables
-            // Create complete modal data with all refreshed information
-            const modalData = {
-              ...deviceInfoModal.data, // Keep existing modal structure
-              ...updatedDevice, // Update with all new device data
-              // Update the agent_discovered_info with complete refreshed data
-              agent_discovered_info: {
-                ...deviceInfoModal.data?.agent_discovered_info, // Keep existing structure
-                // Update with fresh discovery data
-                ping_status: updatedDevice.ping_status,
-                snmp_status: updatedDevice.snmp_status,
-                is_active: updatedDevice.is_active,
-                last_checked: updatedDevice.last_status_check,
-                // These fields should now be updated from full discovery
-                hostname: updatedDevice.hostname || updatedDevice.agent_discovered_info?.hostname,
-                description: updatedDevice.description || updatedDevice.agent_discovered_info?.description,
-                vendor: updatedDevice.vendor || updatedDevice.agent_discovered_info?.vendor,
-                model: updatedDevice.model || updatedDevice.agent_discovered_info?.model,
-                uptime: updatedDevice.uptime || updatedDevice.agent_discovered_info?.uptime,
-                platform: updatedDevice.platform || updatedDevice.agent_discovered_info?.platform,
-                os_version: updatedDevice.os_version || updatedDevice.agent_discovered_info?.os_version
-              }
-            };
-            
-            console.log("🔄 Current modal data:", deviceInfoModal.data);
-            console.log("🔄 Updated device data:", updatedDevice);
-            console.log("🔄 Merged modal data:", modalData);
-            
-            console.log("🔄 Updating modal with completely refreshed discovery data:", modalData);
-            
-            setDeviceInfoModal(prev => ({
-              ...prev,
-              loading: false,
-              data: modalData
-            }));
-            
-            console.log("✅ Modal updated with complete discovery data successfully!");
-          } else {
-            throw new Error('Could not find updated device data after discovery');
-          }
-        } catch (fetchError) {
-          console.error("Error fetching updated device data:", fetchError);
-          throw new Error('Failed to fetch updated device data after discovery');
-        }
-      } else {
-        throw new Error('Device discovery refresh failed');
-      }
+      setDeviceInfoModal(prev => ({
+        ...prev,
+        loading: false,
+        data: { ...prev.data, ...deviceInfo }
+      }));
 
     } catch (err) {
       console.error('Error refreshing device info:', err);
