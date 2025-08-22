@@ -8,10 +8,18 @@ logger = logging.getLogger(__name__)
 from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Header, WebSocket, WebSocketDisconnect, Body, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, text, inspect
 import json
 import os
 import re
+import requests
+import ipaddress
+import threading
+import traceback
+import time
+import subprocess
+import psutil
+import shutil
 
 from app.core.dependencies import get_current_user
 from app.api.deps import get_db
@@ -21,6 +29,7 @@ from app.models.base import (
 )
 from app.models.base import Device
 from app.models.topology import DeviceTopology
+from app.models.interface import Interface
 from app.schemas.base import (
     AgentCreate, AgentUpdate, AgentResponse, AgentRegistration,
     AgentHeartbeat, DiscoveryRequest, DiscoveryResponse, AgentTokenAuditLogResponse
@@ -3347,8 +3356,6 @@ async def get_pending_discovery_requests(
                 return [request]
         
         logger.info(f"🔍 DEBUG: No pending discovery requests found for agent {agent_id}")
-        return []
-        
         return []
         
     except HTTPException:
