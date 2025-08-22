@@ -26,6 +26,7 @@ from app.schemas.base import (
     AgentHeartbeat, DiscoveryRequest, DiscoveryResponse, AgentTokenAuditLogResponse
 )
 from app.schemas.base import AgentDiscoveryRequest
+from app.core.security import get_password_hash
 
 router = APIRouter()
 
@@ -2707,10 +2708,41 @@ async def submit_discovery_results(
                             )
                             db.add(new_snmp_config)
                     
+                    # Update SSH credentials if they exist in pending discovery request and current credentials are empty
+                    if agent_id in pending_discovery_requests:
+                        pending_request = pending_discovery_requests[agent_id]
+                        if pending_request.get("session_id") == session_id:
+                            credentials = pending_request.get("credentials", {})
+                            if credentials.get("username") and (not existing_device.username or existing_device.username == ""):
+                                existing_device.username = credentials.get("username")
+                                logger.info(f"Updated SSH username for existing device {device_ip}: {credentials.get('username')}")
+                            if credentials.get("password") and (not existing_device.password or existing_device.password == ""):
+                                # Hash the SSH password before storing
+                                hashed_password = get_password_hash(credentials.get("password"))
+                                existing_device.password = hashed_password
+                                logger.info(f"Updated SSH password for existing device {device_ip}: {'*' * len(credentials.get('password'))}")
+                    
                     saved_devices.append(existing_device)
                     logger.info(f"Updated existing device: {device_name} ({device_ip}) - Ping: {ping_ok}, SNMP: {snmp_ok}, Method: {discovery_method}")
                 else:
                     # Create new device
+                    # Get SSH credentials from pending discovery request
+                    ssh_username = ""
+                    ssh_password = ""
+                    if agent_id in pending_discovery_requests:
+                        pending_request = pending_discovery_requests[agent_id]
+                        if pending_request.get("session_id") == session_id:
+                            credentials = pending_request.get("credentials", {})
+                            ssh_username = credentials.get("username", "")
+                            ssh_password = credentials.get("password", "")
+                            logger.info(f"Retrieved SSH credentials for device {device_ip}: username={ssh_username}, password={'*' * len(ssh_password) if ssh_password else 'None'}")
+                    
+                    # Hash the SSH password if it exists
+                    hashed_ssh_password = ""
+                    if ssh_password:
+                        hashed_ssh_password = get_password_hash(ssh_password)
+                        logger.info(f"SSH password hashed for device {device_ip}")
+                    
                     new_device = Device(
                         name=device_name,
                         ip=device_ip,
@@ -2722,8 +2754,8 @@ async def submit_discovery_results(
                         network_id=network_id,
                         owner_id=agent.company_id,  # Use agent's company as owner
                         company_id=agent.company_id,
-                        username="",  # Required field
-                        password="",  # Required field
+                        username=ssh_username,  # Store SSH username
+                        password=hashed_ssh_password,  # Store hashed SSH password
                         ping_status=ping_ok,
                         snmp_status=snmp_ok,
                         discovery_method=discovery_method,
