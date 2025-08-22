@@ -5,7 +5,7 @@ from app.core.dependencies import get_current_user
 from app.models.base import Device, UserOrganizationAccess, UserNetworkAccess, User, Network, Organization, DeviceLog, LogType, DeviceSNMP as DeviceSNMPModel
 from app.schemas.base import DeviceCreate, Device as DeviceSchema, DeviceLogCreate, DeviceLog as DeviceLogSchema, DeviceSNMPCreate, DeviceSNMP as DeviceSNMPSchema
 from typing import List, Optional, Dict, Union, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, datetime as datetime_class
 import subprocess
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -2253,9 +2253,16 @@ async def refresh_device_full(
                     "error": "No agents available"
                 }
             
-            # Use the first available agent
+            # Debug: Show all available agents
+            print(f"[FULL REFRESH] Available agents: {[{'id': a['id'], 'name': a.get('name', 'Unknown'), 'heartbeat': a.get('last_heartbeat')} for a in agents]}")
+            
+            # Find the most recently active agent (most likely to be the one running)
+            # Sort by last_heartbeat to get the most recently active agent
+            agents.sort(key=lambda x: x.get('last_heartbeat', datetime.min), reverse=True)
             agent = agents[0]
             agent_id = agent['id']
+            
+            print(f"[FULL REFRESH] Selected agent {agent_id} ({agent.get('name', 'Unknown')}) for discovery")
             
             # Create a session ID for tracking this discovery
             import uuid
