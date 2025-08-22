@@ -2278,10 +2278,15 @@ async def refresh_device_full(
                 "snmp_config": snmp_config,
                 "ssh_credentials": {
                     "username": device.username,
-                    "password": device.password
+                    "password": device.password,
+                    "port": getattr(device, 'ssh_port', 22)  # Default to 22 if not specified
                 },
                 "timestamp": datetime.utcnow().isoformat()
             }
+            
+            # Debug: Log what credentials are being sent (without exposing password)
+            ssh_port = getattr(device, 'ssh_port', 22)
+            print(f"[FULL REFRESH] Sending SSH credentials to agent: username='{device.username}', port={ssh_port}, password={'*' * len(device.password) if device.password else 'None'}")
             
             # Store discovery request for agent to pick up
             try:

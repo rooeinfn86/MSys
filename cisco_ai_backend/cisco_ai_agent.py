@@ -23,6 +23,7 @@ import paramiko
 import psutil
 import tkinter as tk
 from tkinter import ttk, messagebox
+import socket
 
 # Configure logging
 logging.basicConfig(
@@ -603,19 +604,39 @@ class CiscoAIAgent:
         try:
             # Get SSH credentials from the discovery request, not from agent config
             # This ensures we use the actual device credentials from the database
-            username = self.current_discovery_request.get('ssh_credentials', {}).get('username', 'cisco')
-            password = self.current_discovery_request.get('ssh_credentials', {}).get('password', 'cisco')
+            ssh_creds = self.current_discovery_request.get('ssh_credentials', {})
+            username = ssh_creds.get('username', 'cisco')
+            password = ssh_creds.get('password', 'cisco')
+            ssh_port = ssh_creds.get('port', 22)  # Use port from discovery request or default to 22
             
-            logger.info(f"[COMPREHENSIVE] Attempting SSH connection to {ip_address} with credentials from device inventory")
+            # Debug: Log what credentials we received (without exposing password)
+            logger.info(f"[COMPREHENSIVE] Received SSH credentials: username='{username}', port={ssh_port}, password={'*' * len(password) if password else 'None'}")
+            logger.info(f"[COMPREHENSIVE] Attempting SSH connection to {ip_address}:{ssh_port} with credentials from device inventory")
             
             # Try SSH connection
             try:
                 import paramiko
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(ip_address, username=username, password=password, timeout=10)
                 
-                logger.info(f"[COMPREHENSIVE] SSH connection successful to {ip_address}")
+                logger.info(f"[COMPREHENSIVE] Attempting SSH connection with: {ip_address}:{ssh_port}, username: {username}")
+                
+                # Try to connect with more detailed error handling
+                try:
+                    ssh.connect(ip_address, port=ssh_port, username=username, password=password, timeout=10)
+                    logger.info(f"[COMPREHENSIVE] SSH connection successful to {ip_address}:{ssh_port}")
+                except paramiko.AuthenticationException as auth_error:
+                    logger.error(f"[COMPREHENSIVE] SSH authentication failed for {ip_address}:{ssh_port}: {auth_error}")
+                    raise auth_error
+                except paramiko.SSHException as ssh_error:
+                    logger.error(f"[COMPREHENSIVE] SSH connection error for {ip_address}:{ssh_port}: {ssh_error}")
+                    raise ssh_error
+                except socket.error as socket_error:
+                    logger.error(f"[COMPREHENSIVE] Socket error for {ip_address}:{ssh_port}: {socket_error}")
+                    raise socket_error
+                except Exception as conn_error:
+                    logger.error(f"[COMPREHENSIVE] Unexpected connection error for {ip_address}:{ssh_port}: {conn_error}")
+                    raise conn_error
                 
                 # Detect vendor first
                 vendor = self.detect_device_vendor(ssh)
@@ -640,7 +661,7 @@ class CiscoAIAgent:
                 return device_info
                 
             except Exception as ssh_error:
-                logger.warning(f"[COMPREHENSIVE] SSH failed for {ip_address}: {ssh_error}")
+                logger.warning(f"[COMPREHENSIVE] SSH failed for {ip_address}:{ssh_port}: {ssh_error}")
                 # Fall back to SNMP-only collection
                 return self.collect_device_information(ip_address, snmp_config)
                 
@@ -1220,6 +1241,7 @@ class CiscoAIAgent:
         try:
             username = credentials.get('username', '')
             password = credentials.get('password', '')
+            ssh_port = credentials.get('port', 22)  # Get port from credentials or default to 22
             
             if not username or not password:
                 return None
@@ -1227,7 +1249,25 @@ class CiscoAIAgent:
             # Try to connect via SSH
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ip_address, username=username, password=password, timeout=5)
+            
+            logger.info(f"[ENHANCED SSH] Attempting SSH connection with: {ip_address}:{ssh_port}, username: {username}")
+            
+            # Try to connect with more detailed error handling
+            try:
+                ssh.connect(ip_address, port=ssh_port, username=username, password=password, timeout=10)
+                logger.info(f"[ENHANCED SSH] SSH connection successful to {ip_address}:{ssh_port}")
+            except paramiko.AuthenticationException as auth_error:
+                logger.error(f"[ENHANCED SSH] SSH authentication failed for {ip_address}:{ssh_port}: {auth_error}")
+                raise auth_error
+            except paramiko.SSHException as ssh_error:
+                logger.error(f"[ENHANCED SSH] SSH connection error for {ip_address}:{ssh_port}: {ssh_error}")
+                raise ssh_error
+            except socket.error as socket_error:
+                logger.error(f"[ENHANCED SSH] Socket error for {ip_address}:{ssh_port}: {socket_error}")
+                raise socket_error
+            except Exception as conn_error:
+                logger.error(f"[ENHANCED SSH] Unexpected connection error for {ip_address}:{ssh_port}: {conn_error}")
+                raise conn_error
             
             # Get device information via SSH commands
             device_info = {
