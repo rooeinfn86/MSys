@@ -6,7 +6,7 @@ export const deviceService = {
   async fetchDevices(networkId) {
     try {
       console.log("Fetching devices for network:", networkId);
-      const res = await api.get(`/api/v1/devices/?network_id=${networkId}`);
+      const res = await api.get(`/api/v1/devices/devices/?network_id=${networkId}`);
       const data = res.data;
       console.log("Raw device data from backend:", data);
       return data;
@@ -20,7 +20,7 @@ export const deviceService = {
   async addEditDevice(deviceData, editingDeviceId = null) {
     try {
       // First, check device connectivity and fetch information using discovery
-      const discoveryResponse = await api.post("/api/v1/devices/discover", {
+      const discoveryResponse = await api.post("/api/v1/devices/discovery/discover", {
         network_id: deviceData.network_id,
         start_ip: deviceData.ip,
         end_ip: deviceData.ip,
@@ -47,7 +47,7 @@ export const deviceService = {
       const maxAttempts = 10;
 
       while (attempts < maxAttempts) {
-        const statusResponse = await api.get(`/api/v1/devices/discover/status/${discoveryResponse.data.scan_id}`);
+        const statusResponse = await api.get(`/api/v1/devices/discovery/status/${discoveryResponse.data.scan_id}`);
 
         if (!statusResponse.data) {
           throw new Error('Failed to check discovery status');
@@ -57,7 +57,7 @@ export const deviceService = {
         
         if (statusData.status === 'completed') {
           // Get the discovered device information
-          const devicesResponse = await api.get(`/api/v1/devices/?network_id=${deviceData.network_id}`);
+          const devicesResponse = await api.get(`/api/v1/devices/devices/?network_id=${deviceData.network_id}`);
 
           if (!devicesResponse.data) {
             throw new Error('Failed to fetch discovered device');
@@ -81,7 +81,7 @@ export const deviceService = {
 
       // If we're editing, update the existing device
       if (editingDeviceId) {
-        const response = await api.put(`/api/v1/devices/${editingDeviceId}`, {
+        const response = await api.put(`/api/v1/devices/devices/${editingDeviceId}`, {
           ...deviceInfo,
           name: deviceData.name || deviceInfo.name,
           location: deviceData.location || deviceInfo.location,
@@ -117,8 +117,8 @@ export const deviceService = {
   // Delete device
   async deleteDevice(deviceId) {
     try {
-      console.log("Making DELETE request to:", `/api/v1/devices/${deviceId}`);
-      const response = await api.delete(`/api/v1/devices/${deviceId}`);
+      console.log("Making DELETE request to:", `/api/v1/devices/devices/${deviceId}`);
+      const response = await api.delete(`/api/v1/devices/devices/${deviceId}`);
       console.log("Delete response:", response);
       return response.data;
     } catch (error) {
@@ -130,7 +130,7 @@ export const deviceService = {
   // Toggle device service status
   async toggleServiceStatus(deviceId, currentStatus) {
     try {
-      const response = await api.put(`/api/v1/devices/${deviceId}/toggle-service`, { 
+      const response = await api.put(`/api/v1/devices/devices/${deviceId}/toggle-service`, { 
         is_active: !currentStatus 
       });
 
@@ -152,7 +152,7 @@ export const deviceService = {
       console.log(`🔄 Refreshing status for device ID: ${deviceId}`);
       
       // Use the agent-based individual device refresh endpoint
-      const response = await api.post(`/api/v1/devices/status/${deviceId}/refresh-agent`);
+      const response = await api.post(`/api/v1/devices/status/${deviceId}/refresh`);
       
       if (response.data) {
         console.log("✅ Agent status refresh requested:", response.data);
@@ -162,7 +162,7 @@ export const deviceService = {
         await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
         
         // Re-fetch the specific device to get updated status
-        const devicesResponse = await api.get(`/api/v1/devices/?network_id=${networkId}`);
+        const devicesResponse = await api.get(`/api/v1/devices/devices/?network_id=${networkId}`);
         const updatedDevices = devicesResponse.data;
         const updatedDevice = updatedDevices.find(d => d.id === deviceId);
         

@@ -5,7 +5,7 @@ export const discoveryService = {
   // Start device discovery
   async startDeviceDiscovery(discoveryData) {
     try {
-      const response = await api.post("/api/v1/devices/discover", discoveryData);
+      const response = await api.post("/api/v1/devices/discovery/discover", discoveryData);
       
       if (!response.data) {
         throw new Error('Invalid response from discovery service');
@@ -21,7 +21,7 @@ export const discoveryService = {
   // Check discovery status
   async checkDiscoveryStatus(scanId) {
     try {
-      const response = await api.get(`/api/v1/devices/discover/status/${scanId}`);
+      const response = await api.get(`/api/v1/devices/discovery/status/${scanId}`);
       
       if (!response.data) {
         throw new Error('Failed to check discovery status');
@@ -63,7 +63,7 @@ export const discoveryService = {
   // Get discovered devices
   async getDiscoveredDevices(networkId, targetIp = null) {
     try {
-      const response = await api.get(`/api/v1/devices/?network_id=${networkId}`);
+      const response = await api.get(`/api/v1/devices/devices/?network_id=${networkId}`);
       
       if (!response.data) {
         throw new Error('Failed to fetch discovered devices');
@@ -131,7 +131,7 @@ export const discoveryService = {
   // Cancel ongoing discovery
   async cancelDiscovery(scanId) {
     try {
-      const response = await api.post(`/api/v1/devices/discover/cancel/${scanId}`);
+      const response = await api.post(`/api/v1/devices/discovery/cancel/${scanId}`);
       return response.data;
     } catch (error) {
       console.error("❌ Failed to cancel discovery:", error);

@@ -14,7 +14,7 @@ export const topologyService = {
     try {
       // Use device inventory data instead of separate topology data
       // This ensures we get the same real-time status as the device inventory
-      const devicesResponse = await api.get(`/api/v1/devices/?network_id=${networkId}`);
+      const devicesResponse = await api.get(`/api/v1/devices/devices/?network_id=${networkId}`);
       const devices = devicesResponse.data;
       
       if (!devices || devices.length === 0) {
