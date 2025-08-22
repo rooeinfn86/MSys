@@ -3460,7 +3460,7 @@ async def report_full_device_discovery_results(
             # Update device information in database
             device = db.query(Device).filter(Device.id == device_id).first()
             if device:
-                # Update basic device info
+                # Update basic device info with comprehensive data
                 if discovery_results.get("hostname"):
                     device.name = discovery_results["hostname"]
                 if discovery_results.get("model"):
@@ -3471,6 +3471,9 @@ async def report_full_device_discovery_results(
                     device.os_version = discovery_results["os_version"]
                 if discovery_results.get("serial_number"):
                     device.serial_number = discovery_results["serial_number"]
+                if discovery_results.get("vendor"):
+                    # Store vendor info if we have a field for it
+                    pass  # Could add vendor field to Device model later
                 
                 # Update status
                 device.ping_status = discovery_results.get("ping_status", True)
@@ -3488,7 +3491,7 @@ async def report_full_device_discovery_results(
                         network_id=device.network_id
                     )
                 
-                # Update MIB-2 information
+                # Update MIB-2 information with comprehensive data
                 if discovery_results.get("mib2_info"):
                     mib2 = discovery_results["mib2_info"]
                     device_topology.hostname = mib2.get("hostname")
@@ -3496,6 +3499,19 @@ async def report_full_device_discovery_results(
                     device_topology.model = mib2.get("model")
                     device_topology.uptime = mib2.get("uptime")
                     device_topology.last_polled = datetime.utcnow()
+                
+                # Also store comprehensive device info in topology if available
+                if discovery_results.get("description"):
+                    # Store description in health_data JSON field
+                    if not device_topology.health_data:
+                        device_topology.health_data = {}
+                    device_topology.health_data["description"] = discovery_results["description"]
+                
+                if discovery_results.get("location"):
+                    # Store location in health_data JSON field
+                    if not device_topology.health_data:
+                        device_topology.health_data = {}
+                    device_topology.health_data["location"] = discovery_results["location"]
                 
                 db.add(device)
                 db.add(device_topology)

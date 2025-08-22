@@ -12,6 +12,7 @@ import logging
 import threading
 import subprocess
 import platform
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -590,6 +591,185 @@ class CiscoAIAgent:
                 "os_version": "Unknown",
                 "serial_number": "Unknown"
             }
+    
+    def collect_comprehensive_device_info(self, ip_address: str, snmp_config: Dict) -> Dict:
+        """Collect comprehensive device information using SSH (same as device inventory auto-discovery)"""
+        try:
+            # Get SSH credentials from config or use defaults
+            username = self.config.get('ssh_username', 'cisco')
+            password = self.config.get('ssh_password', 'cisco')
+            
+            logger.info(f"[COMPREHENSIVE] Attempting SSH connection to {ip_address}")
+            
+            # Try SSH connection
+            try:
+                import paramiko
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(ip_address, username=username, password=password, timeout=10)
+                
+                logger.info(f"[COMPREHENSIVE] SSH connection successful to {ip_address}")
+                
+                # Detect vendor first
+                vendor = self.detect_device_vendor(ssh)
+                logger.info(f"[COMPREHENSIVE] Detected vendor: {vendor}")
+                
+                # Get vendor-specific information
+                if vendor == 'cisco':
+                    device_info = self.get_cisco_device_info(ssh)
+                elif vendor == 'juniper':
+                    device_info = self.get_juniper_device_info(ssh)
+                elif vendor == 'arista':
+                    device_info = self.get_arista_device_info(ssh)
+                else:
+                    device_info = self.get_generic_device_info(ssh)
+                
+                # Add vendor and platform info
+                device_info['vendor'] = vendor
+                device_info['platform'] = self.determine_platform(vendor, device_info.get('description', ''))
+                
+                ssh.close()
+                logger.info(f"[COMPREHENSIVE] SSH discovery completed for {ip_address}")
+                return device_info
+                
+            except Exception as ssh_error:
+                logger.warning(f"[COMPREHENSIVE] SSH failed for {ip_address}: {ssh_error}")
+                # Fall back to SNMP-only collection
+                return self.collect_device_information(ip_address, snmp_config)
+                
+        except Exception as e:
+            logger.error(f"[COMPREHENSIVE] Error in comprehensive device info collection: {str(e)}")
+            # Fall back to SNMP-only collection
+            return self.collect_device_information(ip_address, snmp_config)
+    
+    def determine_platform(self, vendor: str, description: str) -> str:
+        """Determine platform based on vendor and description"""
+        if vendor == 'cisco':
+            if 'IOS-XE' in description:
+                return 'cisco_ios_xe'
+            elif 'NX-OS' in description:
+                return 'cisco_nx_os'
+            else:
+                return 'cisco_ios'
+        elif vendor == 'juniper':
+            return 'juniper_junos'
+        elif vendor == 'arista':
+            return 'arista_eos'
+        else:
+            return 'generic'
+    
+    def get_arista_device_info(self, ssh) -> Dict:
+        """Get device information for Arista devices"""
+        device_info = {}
+        
+        try:
+            # Get hostname
+            stdin, stdout, stderr = ssh.exec_command('show hostname', timeout=5)
+            hostname = stdout.read().decode().strip()
+            device_info['hostname'] = hostname if hostname else 'Unknown'
+            
+            # Get version information
+            stdin, stdout, stderr = ssh.exec_command('show version', timeout=10)
+            version_output = stdout.read().decode().strip()
+            device_info['description'] = version_output[:200] + '...' if len(version_output) > 200 else version_output
+            device_info['os_version'] = self.extract_arista_os_version(version_output)
+            device_info['serial_number'] = self.extract_arista_serial(version_output)
+            
+            # Get location
+            stdin, stdout, stderr = ssh.exec_command('show running-config | include snmp-server location', timeout=5)
+            location_output = stdout.read().decode().strip()
+            device_info['location'] = self.extract_arista_location(location_output)
+            
+        except Exception as e:
+            logger.error(f"Arista device info extraction failed: {e}")
+            device_info.update({
+                'hostname': 'Unknown',
+                'description': 'Unknown',
+                'os_version': 'Unknown',
+                'serial_number': 'Unknown',
+                'location': 'Unknown'
+            })
+        
+        return device_info
+    
+    def get_generic_device_info(self, ssh) -> Dict:
+        """Get device information for generic/unknown devices"""
+        device_info = {}
+        
+        try:
+            # Try common commands
+            stdin, stdout, stderr = ssh.exec_command('hostname', timeout=5)
+            hostname = stdout.read().decode().strip()
+            device_info['hostname'] = hostname if hostname else 'Unknown'
+            
+            stdin, stdout, stderr = ssh.exec_command('uname -a', timeout=5)
+            uname_output = stdout.read().decode().strip()
+            device_info['description'] = uname_output[:200] + '...' if len(uname_output) > 200 else uname_output
+            device_info['os_version'] = 'Unknown'
+            device_info['serial_number'] = 'Unknown'
+            device_info['location'] = 'Unknown'
+            
+        except Exception as e:
+            logger.error(f"Generic device info extraction failed: {e}")
+            device_info.update({
+                'hostname': 'Unknown',
+                'description': 'Unknown',
+                'os_version': 'Unknown',
+                'serial_number': 'Unknown',
+                'location': 'Unknown'
+            })
+        
+        return device_info
+    
+    def extract_arista_os_version(self, version_output: str) -> str:
+        """Extract Arista OS version from show version output"""
+        try:
+            # Look for patterns like "Software image version: 4.26.2M"
+            version_match = re.search(r'Software image version:\s*([\d\.]+[a-zA-Z]?)', version_output)
+            if version_match:
+                return version_match.group(1)
+            
+            # Fallback: look for any version pattern
+            version_match = re.search(r'version\s+([\d\.]+[a-zA-Z]?)', version_output, re.IGNORECASE)
+            if version_match:
+                return version_match.group(1)
+            
+            return 'Unknown'
+        except Exception as e:
+            logger.warning(f"Error extracting Arista OS version: {e}")
+            return 'Unknown'
+    
+    def extract_arista_serial(self, version_output: str) -> str:
+        """Extract Arista serial number from show version output"""
+        try:
+            # Look for patterns like "Serial number: JPE12345678"
+            serial_match = re.search(r'Serial number:\s*([A-Z0-9]+)', version_output)
+            if serial_match:
+                return serial_match.group(1)
+            
+            # Fallback: look for any serial pattern
+            serial_match = re.search(r'[Ss]erial[:\s]+([A-Z0-9]+)', version_output)
+            if serial_match:
+                return serial_match.group(1)
+            
+            return 'Unknown'
+        except Exception as e:
+            logger.warning(f"Error extracting Arista serial: {e}")
+            return 'Unknown'
+    
+    def extract_arista_location(self, location_output: str) -> str:
+        """Extract Arista location from running config"""
+        try:
+            if 'snmp-server location' in location_output:
+                # Extract location after "snmp-server location"
+                location_match = re.search(r'snmp-server location\s+(.+)', location_output)
+                if location_match:
+                    return location_match.group(1).strip()
+            
+            return 'Default'
+        except Exception as e:
+            logger.warning(f"Error extracting Arista location: {e}")
+            return 'Default'
     
     def perform_status_test(self, session_id: str, network_id: int, devices: List[Dict]):
         """Perform status testing for devices"""

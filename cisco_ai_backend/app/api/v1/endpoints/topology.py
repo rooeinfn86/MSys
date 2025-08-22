@@ -1493,13 +1493,23 @@ async def get_device_topology_info(
                 "last_polled": None
             }
         
-        return {
+        # Build comprehensive response including health_data
+        response_data = {
             "hostname": device_topology.hostname or "Not available",
             "vendor": device_topology.vendor or "Not available",
             "model": device_topology.model or "Not available", 
             "uptime": device_topology.uptime or "Not available",
             "last_polled": device_topology.last_polled.isoformat() if device_topology.last_polled else None
         }
+        
+        # Add health_data fields if available
+        if device_topology.health_data:
+            if device_topology.health_data.get("description"):
+                response_data["description"] = device_topology.health_data["description"]
+            if device_topology.health_data.get("location"):
+                response_data["location"] = device_topology.health_data["location"]
+        
+        return response_data
         
     except Exception as e:
         logging.error(f"Error fetching device topology info: {str(e)}")
