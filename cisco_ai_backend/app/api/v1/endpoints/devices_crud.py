@@ -269,6 +269,45 @@ async def refresh_device(
                     print(f"🔍 Found other device with credentials: {other_device.name}")
                     device.password = other_device.password
                     print(f"🔍 Using password from other device: {'*' * len(device.password)}")
+                    
+            # Check if we can get credentials from device topology or discovery session
+            if not device.password:
+                print(f"🔍 Checking device topology for stored credentials...")
+                try:
+                    from app.models.topology import DeviceTopology
+                    topology = db.query(DeviceTopology).filter(
+                        DeviceTopology.device_id == device.id
+                    ).first()
+                    
+                    if topology and hasattr(topology, 'ssh_credentials'):
+                        print(f"🔍 Found SSH credentials in topology")
+                        if topology.ssh_credentials.get('username') and not device.username:
+                            device.username = topology.ssh_credentials['username']
+                        if topology.ssh_credentials.get('password') and not device.password:
+                            device.password = topology.ssh_credentials['password']
+                            print(f"🔍 Using topology SSH password: {'*' * len(device.password)}")
+                except Exception as e:
+                    print(f"🔍 Could not check topology: {e}")
+                    
+            # Check if we can get credentials from the discovery session
+            if not device.password:
+                print(f"🔍 Checking for recent discovery sessions...")
+                try:
+                    from app.models.base import DiscoverySession
+                    recent_session = db.query(DiscoverySession).filter(
+                        DiscoverySession.network_id == device.network_id,
+                        DiscoverySession.status == "completed"
+                    ).order_by(DiscoverySession.created_at.desc()).first()
+                    
+                    if recent_session and hasattr(recent_session, 'credentials'):
+                        print(f"🔍 Found recent discovery session with credentials")
+                        if recent_session.credentials.get('username') and not device.username:
+                            device.username = recent_session.credentials['username']
+                        if recent_session.credentials.get('password') and not device.password:
+                            device.password = recent_session.credentials['password']
+                            print(f"🔍 Using discovery session password: {'*' * len(device.password)}")
+                except Exception as e:
+                    print(f"🔍 Could not check discovery sessions: {e}")
         else:
             print(f"✅ Device has credentials - username: '{device.username}', password: {'*' * len(device.password) if device.password else 'None'}")
         
@@ -368,14 +407,31 @@ async def refresh_device(
         # Validate that we have credentials before proceeding
         if not discovery_request.credentials['username'] or not discovery_request.credentials['password']:
             print(f"❌ No valid credentials found for device {device.id}")
-            print(f"🔍 Tried: device credentials, owner credentials, current user, SNMP config, other devices")
+            print(f"🔍 Tried: device credentials, owner credentials, current user, SNMP config, other devices, topology, discovery sessions")
             print(f"🔍 Device owner_id: {device.owner_id}")
             print(f"🔍 Current user_id: {current_user['user_id']}")
             
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Device refresh requires valid SSH credentials. Device {device.name} ({device.ip}) has no stored credentials. Please run auto-discovery again with proper SSH credentials to populate this device."
-            )
+            # Check if we can get credentials from the agent's configuration
+            if not discovery_request.credentials['password']:
+                print(f"🔍 Checking agent configuration for stored credentials...")
+                try:
+                    agent_config = db.query(Agent).filter(Agent.id == agent_id).first()
+                    if agent_config and hasattr(agent_config, 'stored_credentials'):
+                        print(f"🔍 Found agent stored credentials")
+                        if agent_config.stored_credentials.get('username') and not discovery_request.credentials['username']:
+                            discovery_request.credentials['username'] = agent_config.stored_credentials['username']
+                        if agent_config.stored_credentials.get('password') and not discovery_request.credentials['password']:
+                            discovery_request.credentials['password'] = agent_config.stored_credentials['password']
+                            print(f"🔍 Using agent stored credentials: username='{discovery_request.credentials['username']}', password='{'*' * len(discovery_request.credentials['password'])}'")
+                except Exception as e:
+                    print(f"🔍 Could not check agent configuration: {e}")
+            
+            # Final validation
+            if not discovery_request.credentials['username'] or not discovery_request.credentials['password']:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Device refresh requires valid SSH credentials. Device {device.name} ({device.ip}) has no stored credentials. Please run auto-discovery again with proper SSH credentials to populate this device."
+                )
         
         # Call the agent discovery endpoint
         from app.api.v1.endpoints.agents import start_agent_discovery

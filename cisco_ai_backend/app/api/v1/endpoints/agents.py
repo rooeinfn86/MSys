@@ -2707,9 +2707,34 @@ async def submit_discovery_results(
                             )
                             db.add(new_snmp_config)
                     
+                    # Update SSH credentials if they're missing and we have them from discovery request
+                    if (not existing_device.username or not existing_device.password) and agent_id in pending_discovery_requests:
+                        pending_request = pending_discovery_requests[agent_id]
+                        if pending_request.get("session_id") == session_id:
+                            credentials = pending_request.get("credentials", {})
+                            if credentials.get("username") and not existing_device.username:
+                                existing_device.username = credentials.get("username")
+                                logger.info(f"Updated existing device {device_ip} with SSH username: {existing_device.username}")
+                            if credentials.get("password") and not existing_device.password:
+                                existing_device.password = credentials.get("password")
+                                logger.info(f"Updated existing device {device_ip} with SSH password: {'*' * len(existing_device.password)}")
+                    
                     saved_devices.append(existing_device)
                     logger.info(f"Updated existing device: {device_name} ({device_ip}) - Ping: {ping_ok}, SNMP: {snmp_ok}, Method: {discovery_method}")
                 else:
+                    # Get SSH credentials from the discovery request
+                    ssh_username = ""
+                    ssh_password = ""
+                    
+                    # Try to get credentials from the pending discovery request
+                    if agent_id in pending_discovery_requests:
+                        pending_request = pending_discovery_requests[agent_id]
+                        if pending_request.get("session_id") == session_id:
+                            credentials = pending_request.get("credentials", {})
+                            ssh_username = credentials.get("username", "")
+                            ssh_password = credentials.get("password", "")
+                            logger.info(f"Using SSH credentials from discovery request: username='{ssh_username}', password='{'*' * len(ssh_password) if ssh_password else 'None'}'")
+                    
                     # Create new device
                     new_device = Device(
                         name=device_name,
@@ -2722,8 +2747,8 @@ async def submit_discovery_results(
                         network_id=network_id,
                         owner_id=agent.company_id,  # Use agent's company as owner
                         company_id=agent.company_id,
-                        username="",  # Required field
-                        password="",  # Required field
+                        username=ssh_username,  # Use SSH credentials from discovery request
+                        password=ssh_password,  # Use SSH credentials from discovery request
                         ping_status=ping_ok,
                         snmp_status=snmp_ok,
                         discovery_method=discovery_method,
