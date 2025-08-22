@@ -227,6 +227,8 @@ async def refresh_device(
         # Check if we need to get credentials from the owner
         if not device.username or not device.password:
             print(f"🔍 Device has no credentials, checking owner credentials...")
+            
+            # Try to get owner credentials
             owner = db.query(User).filter(User.id == device.owner_id).first()
             if owner:
                 print(f"🔍 Owner found: {owner.username}")
@@ -235,7 +237,14 @@ async def refresh_device(
                 # Don't hardcode passwords - only use what's available
                 print(f"🔍 Updated device credentials - username: '{device.username}', password: '{'*' * len(device.password) if device.password else 'None'}'")
             else:
-                print(f"⚠️  No owner found for device {device.id}")
+                print(f"⚠️  No owner found for device {device.id} with owner_id {device.owner_id}")
+                
+                # Try to get credentials from the current user who is making the request
+                current_user_obj = db.query(User).filter(User.id == current_user["user_id"]).first()
+                if current_user_obj:
+                    print(f"🔍 Using current user credentials: {current_user_obj.username}")
+                    device.username = device.username or current_user_obj.username
+                    # Note: We still don't have a password, but at least we have a username
                 
             # Also check if SNMP config has credentials
             if hasattr(device, 'snmp_config') and device.snmp_config:
@@ -245,6 +254,21 @@ async def refresh_device(
                 if device.snmp_config.auth_password and not device.password:
                     device.password = device.snmp_config.auth_password
                     print(f"🔍 Using SNMP auth password: {'*' * len(device.password)}")
+                    
+            # Check if we can get credentials from other devices in the same network
+            if not device.password:
+                print(f"🔍 Checking for credentials from other devices in network {device.network_id}")
+                other_device = db.query(Device).filter(
+                    Device.network_id == device.network_id,
+                    Device.id != device.id,
+                    Device.password.isnot(None),
+                    Device.password != ''
+                ).first()
+                
+                if other_device:
+                    print(f"🔍 Found other device with credentials: {other_device.name}")
+                    device.password = other_device.password
+                    print(f"🔍 Using password from other device: {'*' * len(device.password)}")
         else:
             print(f"✅ Device has credentials - username: '{device.username}', password: {'*' * len(device.password) if device.password else 'None'}")
         
@@ -343,9 +367,14 @@ async def refresh_device(
         
         # Validate that we have credentials before proceeding
         if not discovery_request.credentials['username'] or not discovery_request.credentials['password']:
+            print(f"❌ No valid credentials found for device {device.id}")
+            print(f"🔍 Tried: device credentials, owner credentials, current user, SNMP config, other devices")
+            print(f"🔍 Device owner_id: {device.owner_id}")
+            print(f"🔍 Current user_id: {current_user['user_id']}")
+            
             raise HTTPException(
                 status_code=400, 
-                detail="Device refresh requires valid SSH credentials. Please ensure the device has username and password configured."
+                detail=f"Device refresh requires valid SSH credentials. Device {device.name} ({device.ip}) has no stored credentials. Please run auto-discovery again with proper SSH credentials to populate this device."
             )
         
         # Call the agent discovery endpoint
