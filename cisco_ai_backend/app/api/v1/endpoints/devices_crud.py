@@ -210,29 +210,35 @@ async def refresh_device(
 ):
     """Refresh a single device using agent-based discovery"""
     try:
-        from app.services.device_service import DeviceService
-        from app.models.base import Device, Agent, AgentNetworkAccess
-        from app.api.v1.endpoints.agents import pending_discovery_requests
-        import uuid
-        from datetime import datetime, timezone
+        print(f"🔄 Starting device refresh for device ID: {device_id}")
+        print(f"🔍 Current user: {current_user}")
         
         # Get the device
+        print(f"🔍 Querying device from database...")
         device = db.query(Device).filter(Device.id == device_id).first()
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
         
+        print(f"✅ Device found: {device.name} ({device.ip})")
+        
         # Check network access
+        print(f"🔍 Checking network access for network ID: {device.network_id}")
         permission_service = PermissionService(db)
         network = permission_service.check_network_access(current_user, device.network_id)
         if not network:
             raise HTTPException(status_code=403, detail="No access to this network")
         
+        print(f"✅ Network access verified: {network.name}")
+        
         # Get available ONLINE agents for this network
+        print(f"🔍 Querying for online agents in network: {device.network_id}")
         online_agents = db.query(Agent).join(AgentNetworkAccess).filter(
             AgentNetworkAccess.network_id == device.network_id,
             Agent.status == "online",
             Agent.token_status == "active"
         ).all()
+        
+        print(f"🔍 Found {len(online_agents)} online agents")
         
         if not online_agents:
             raise HTTPException(status_code=503, detail="No online agents available for this network")
@@ -272,6 +278,7 @@ async def refresh_device(
         device_data.append(device_info)
         
         # Store refresh request for agent to pick up (same as background monitoring)
+        print(f"🔍 Creating refresh request for agent {agent_id}")
         refresh_request = {
             "type": "status_test",  # Same type as background monitoring
             "session_id": session_id,
@@ -281,7 +288,10 @@ async def refresh_device(
             "source": "device_refresh"  # Different source to distinguish from background
         }
         
+        print(f"🔍 Storing request in pending_discovery_requests")
         pending_discovery_requests[agent_id] = refresh_request
+        
+        print(f"✅ Device refresh request successfully queued for agent {agent_id}")
         
         return {
             "message": "Device refresh started",
@@ -293,6 +303,7 @@ async def refresh_device(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Error in refresh_device: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to start device refresh: {str(e)}")
 
 @router.get("/devices/all", response_model=List[DeviceResponse])
