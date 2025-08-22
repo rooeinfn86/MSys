@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { topologyService } from '../services';
-import { deviceService } from '../services/deviceService';
 
 /**
  * useModalState Hook
@@ -55,34 +54,9 @@ const useModalState = (networkId) => {
         data: { ...nodeData }
       }));
 
-      // Extract device ID safely
-      let deviceId;
-      if (nodeData.id) {
-        // If it's in format "device_123", extract the number
-        if (typeof nodeData.id === 'string' && nodeData.id.startsWith('device_')) {
-          deviceId = nodeData.id.replace('device_', '');
-        } else {
-          // If it's already a number or different format, use as is
-          deviceId = nodeData.id;
-        }
-      } else {
-        throw new Error('Could not determine device ID from node data');
-      }
-      
-      console.log('🔄 handleDeviceInfo: Device ID extraction:', {
-        originalId: nodeData.id,
-        extractedId: deviceId,
-        networkId: networkId,
-        dataType: typeof deviceId
-      });
-      
-      // Validate device ID
-      if (!deviceId || isNaN(deviceId)) {
-        throw new Error(`Invalid device ID: ${deviceId}`);
-      }
-      
       // Fetch detailed device information
-      const deviceInfo = await deviceService.getDeviceInfo(deviceId, networkId);
+      const deviceId = nodeData.id.replace('device_', '');
+      const deviceInfo = await topologyService.getDeviceInfo(networkId, deviceId);
       
       setDeviceInfoModal(prev => ({
         ...prev,
@@ -91,7 +65,7 @@ const useModalState = (networkId) => {
       }));
 
     } catch (err) {
-      console.error('❌ Error fetching device info:', err);
+      console.error('Error fetching device info:', err);
       setDeviceInfoModal(prev => ({
         ...prev,
         loading: false,
@@ -111,70 +85,24 @@ const useModalState = (networkId) => {
         error: null
       }));
 
-      // Extract device ID safely
-      let deviceId;
-      if (deviceInfoModal.data.id) {
-        // If it's in format "device_123", extract the number
-        if (typeof deviceInfoModal.data.id === 'string' && deviceInfoModal.data.id.startsWith('device_')) {
-          deviceId = deviceInfoModal.data.id.replace('device_', '');
-        } else {
-          // If it's already a number or different format, use as is
-          deviceId = deviceInfoModal.data.id;
-        }
-      } else if (deviceInfoModal.data.device_id) {
-        // Fallback to device_id field
-        deviceId = deviceInfoModal.data.device_id;
-      } else {
-        throw new Error('Could not determine device ID from modal data');
-      }
-      
-      console.log('🔄 Device ID extraction:', {
-        originalId: deviceInfoModal.data.id,
-        device_id: deviceInfoModal.data.device_id,
-        extractedId: deviceId,
-        networkId: networkId,
-        dataType: typeof deviceId
-      });
-      
-      // Validate device ID
-      if (!deviceId || isNaN(deviceId)) {
-        throw new Error(`Invalid device ID: ${deviceId}`);
-      }
-      
-      // First, trigger the device refresh through the agent
-      console.log('🔄 Triggering device refresh for device:', deviceId);
-      await deviceService.refreshDevice(deviceId, networkId);
-      
-      // Wait a moment for the agent to process the refresh
-      console.log('⏳ Waiting for agent to process refresh...');
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Increased from 2000ms to 5000ms
-      
-      // Now fetch the updated device information with force refresh
-      console.log('📋 Fetching updated device info...');
-      const updatedDeviceInfo = await deviceService.getDeviceInfo(deviceId, networkId);
+      const deviceId = deviceInfoModal.data.id.replace('device_', '');
+      const deviceInfo = await topologyService.getDeviceInfo(networkId, deviceId);
       
       setDeviceInfoModal(prev => ({
         ...prev,
         loading: false,
-        data: { ...prev.data, ...updatedDeviceInfo }
+        data: { ...prev.data, ...deviceInfo }
       }));
-      
-      console.log('✅ Device refresh completed successfully');
+
     } catch (err) {
-      console.error('❌ Error refreshing device info:', {
-        error: err,
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        statusText: err.response?.statusText
-      });
+      console.error('Error refreshing device info:', err);
       setDeviceInfoModal(prev => ({
         ...prev,
         loading: false,
-        error: err.message || err.response?.data?.detail || 'Failed to refresh device information'
+        error: err.message || 'Failed to refresh device information'
       }));
     }
-  }, [deviceInfoModal.data, networkId]);
+  }, [networkId, deviceInfoModal.data]);
 
   // Handle interface information modal
   const handleInterfaceInfo = useCallback(async (nodeData) => {

@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { topologyService } from '../services/topologyService';
-import { deviceService } from '../services/deviceService';
+import { useState, useCallback } from 'react';
+import { topologyService } from '../services';
 import { extractDeviceId } from '../utils/topologyIndex';
 
 /**
@@ -43,7 +42,7 @@ export const useTopologyModals = (networkId) => {
       // Extract device ID from the node ID (format: "device_123")
       const deviceId = extractDeviceId(nodeData.id);
       
-      const deviceInfo = await deviceService.getDeviceInfo(deviceId, networkId);
+      const deviceInfo = await topologyService.getDeviceInfo(networkId, deviceId);
       
       setDeviceInfoModal(prev => ({
         ...prev,
@@ -51,11 +50,11 @@ export const useTopologyModals = (networkId) => {
         data: deviceInfo
       }));
     } catch (error) {
-      console.error('❌ Error fetching device info:', error);
+      console.error('Error fetching device info:', error);
       setDeviceInfoModal(prev => ({
         ...prev,
         loading: false,
-        error: error.message || 'Failed to fetch device information'
+        error: error.response?.data?.detail || 'Failed to fetch device information'
       }));
     }
   }, [networkId]);
@@ -68,33 +67,20 @@ export const useTopologyModals = (networkId) => {
       setDeviceInfoModal(prev => ({ ...prev, loading: true, error: null }));
       
       // Extract device ID from the current device data
-      const deviceId = deviceInfoModal.data.device_id || deviceInfoModal.data.id;
+      const deviceId = deviceInfoModal.data.device_id;
       
-      // First, trigger the device refresh through the agent
-      console.log('🔄 Triggering device refresh for device:', deviceId);
-      await deviceService.refreshDevice(deviceId, networkId);
-      
-      // Wait a moment for the agent to process the refresh
-      console.log('⏳ Waiting for agent to process refresh...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Now fetch the updated device information
-      console.log('📋 Fetching updated device info...');
-      const updatedDeviceInfo = await deviceService.getDeviceInfo(deviceId, networkId);
-      
+      const deviceInfo = await topologyService.getDeviceInfo(networkId, deviceId);
       setDeviceInfoModal(prev => ({ 
         ...prev, 
         loading: false, 
-        data: updatedDeviceInfo 
+        data: deviceInfo 
       }));
-      
-      console.log('✅ Device refresh completed successfully');
     } catch (err) {
-      console.error('❌ Error refreshing device info:', err);
+      console.error('Error refreshing device info:', err);
       setDeviceInfoModal(prev => ({ 
         ...prev, 
         loading: false, 
-        error: err.message || 'Failed to refresh device information' 
+        error: 'Failed to refresh device information' 
       }));
     }
   }, [deviceInfoModal.data, networkId]);
