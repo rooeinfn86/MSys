@@ -2492,6 +2492,11 @@ async def submit_discovery_results(
         errors = results.get("errors", [])
         session_id = results.get("session_id")
         
+        logger.info(f"[AGENT RESULTS DEBUG] Received discovery results from agent {agent_id}")
+        logger.info(f"[AGENT RESULTS DEBUG] Session ID: {session_id}")
+        logger.info(f"[AGENT RESULTS DEBUG] Number of discovered devices: {len(discovered_devices)}")
+        logger.info(f"[AGENT RESULTS DEBUG] Number of errors: {len(errors)}")
+        
         # Store discovered devices in memory storage
         global discovery_sessions
         if session_id not in discovery_sessions:
@@ -2509,9 +2514,17 @@ async def submit_discovery_results(
         global pending_discovery_requests
         if agent_id in pending_discovery_requests:
             pending_request = pending_discovery_requests[agent_id]
+            logger.info(f"[SESSION DEBUG] Agent {agent_id} pending request session_id: {pending_request.get('session_id')}")
+            logger.info(f"[SESSION DEBUG] Results session_id: {session_id}")
+            logger.info(f"[SESSION DEBUG] Pending request keys: {list(pending_request.keys())}")
+            logger.info(f"[SESSION DEBUG] Pending request credentials: {pending_request.get('credentials', 'None')}")
             if pending_request.get("session_id") == session_id:
                 network_id = pending_request.get("network_id")
                 logger.info(f"Found network_id {network_id} from pending discovery request for session {session_id}")
+            else:
+                logger.warning(f"[SESSION DEBUG] Session ID mismatch: pending={pending_request.get('session_id')}, results={session_id}")
+        else:
+            logger.warning(f"[SESSION DEBUG] No pending discovery request found for agent {agent_id}")
         
         if not network_id and session_id in discovery_sessions:
             # Try to get network_id from the discovery session
@@ -2532,6 +2545,8 @@ async def submit_discovery_results(
         saved_devices = []
         for device_data in discovered_devices:
             try:
+                logger.info(f"[DEVICE DEBUG] Processing device data: {device_data}")
+                
                 # Extract device information
                 device_name = device_data.get("hostname", device_data.get("name", f"Device-{device_data.get('ip', device_data.get('ip_address', 'unknown'))}"))
                 device_ip = device_data.get("ip") or device_data.get("ip_address")  # Try both 'ip' and 'ip_address' fields
@@ -2591,6 +2606,17 @@ async def submit_discovery_results(
                     continue
                 
                 logger.info(f"Processing device: {device_name} ({device_ip}) with type: {device_type}, platform: {platform}")
+                
+                # Debug: Check if credentials exist in pending discovery request
+                if agent_id in pending_discovery_requests:
+                    pending_request = pending_discovery_requests[agent_id]
+                    if pending_request.get("session_id") == session_id:
+                        credentials = pending_request.get("credentials", {})
+                        logger.info(f"[CREDENTIALS DEBUG] Found credentials for device {device_ip}: username='{credentials.get('username', 'None')}', password={'*' * len(credentials.get('password', '')) if credentials.get('password') else 'None'}")
+                    else:
+                        logger.warning(f"[CREDENTIALS DEBUG] Session ID mismatch for device {device_ip}: expected {session_id}, got {pending_request.get('session_id')}")
+                else:
+                    logger.warning(f"[CREDENTIALS DEBUG] No pending discovery request found for agent {agent_id}")
                 
                 # Create or update device in database
                 existing_device = db.query(Device).filter(
@@ -2713,14 +2739,24 @@ async def submit_discovery_results(
                         pending_request = pending_discovery_requests[agent_id]
                         if pending_request.get("session_id") == session_id:
                             credentials = pending_request.get("credentials", {})
-                            if credentials.get("username") and (not existing_device.username or existing_device.username == ""):
+                            logger.info(f"[CREDENTIALS UPDATE DEBUG] Checking credentials for existing device {device_ip}")
+                            logger.info(f"[CREDENTIALS UPDATE DEBUG] Current username: '{existing_device.username}', Current password: {'*' * len(existing_device.password) if existing_device.password else 'None'}")
+                            logger.info(f"[CREDENTIALS UPDATE DEBUG] New username: '{credentials.get('username', 'None')}', New password: {'*' * len(credentials.get('password', '')) if credentials.get('password') else 'None'}")
+                            
+                            if credentials.get("username"):
                                 existing_device.username = credentials.get("username")
                                 logger.info(f"Updated SSH username for existing device {device_ip}: {credentials.get('username')}")
-                            if credentials.get("password") and (not existing_device.password or existing_device.password == ""):
+                            if credentials.get("password"):
                                 # Hash the SSH password before storing
                                 hashed_password = get_password_hash(credentials.get("password"))
                                 existing_device.password = hashed_password
                                 logger.info(f"Updated SSH password for existing device {device_ip}: {'*' * len(credentials.get('password'))}")
+                            else:
+                                logger.info(f"[CREDENTIALS UPDATE DEBUG] No password update needed for device {device_ip}")
+                        else:
+                            logger.warning(f"[CREDENTIALS UPDATE DEBUG] Session ID mismatch for existing device {device_ip}")
+                    else:
+                        logger.warning(f"[CREDENTIALS UPDATE DEBUG] No pending discovery request found for agent {agent_id} when updating existing device {device_ip}")
                     
                     saved_devices.append(existing_device)
                     logger.info(f"Updated existing device: {device_name} ({device_ip}) - Ping: {ping_ok}, SNMP: {snmp_ok}, Method: {discovery_method}")
