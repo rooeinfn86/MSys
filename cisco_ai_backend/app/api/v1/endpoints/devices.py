@@ -2202,6 +2202,26 @@ async def refresh_device_full(
             raise HTTPException(status_code=403, detail="No access to this network")
 
         print(f"[FULL REFRESH] Device {device.name} ({device.ip}) in network {device.network_id}")
+        
+        # Debug: Show device object data to understand why credentials are empty
+        print(f"[FULL REFRESH] Device object data: id={device.id}, name='{device.name}', ip='{device.ip}'")
+        print(f"[FULL REFRESH] Device credentials: username='{device.username}', password={'*' * len(device.password) if device.password else 'None'}")
+        print(f"[FULL REFRESH] Device type: {device.type}, platform: {device.platform}")
+        print(f"[FULL REFRESH] Device owner_id: {device.owner_id}, company_id: {device.company_id}")
+        
+        # Validate that device has SSH credentials for comprehensive discovery
+        if not device.username or not device.password:
+            return {
+                "message": f"Device {device.name} ({device.ip}) is missing SSH credentials",
+                "status": "failed",
+                "device_id": device_id,
+                "error": "SSH credentials (username/password) are required for comprehensive device discovery. Please update the device credentials in Device Inventory first.",
+                "details": {
+                    "username": device.username or "Missing",
+                    "password": "Missing" if not device.password else "Present",
+                    "action_required": "Update device credentials in Device Inventory"
+                }
+            }
 
         # Get SNMP configuration
         snmp_config = None
@@ -2478,3 +2498,54 @@ async def check_refresh_status(
     except Exception as e:
         print(f"[REFRESH STATUS] Error checking refresh status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to check refresh status: {str(e)}")
+
+@router.get("/{device_id}/credentials-status")
+def check_device_credentials(
+    device_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Check the status of device credentials for comprehensive discovery."""
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    # Check network access
+    network = check_network_access(db, current_user, device.network_id)
+    if not network:
+        raise HTTPException(status_code=403, detail="No access to this network")
+    
+    # Check credential status
+    has_username = bool(device.username)
+    has_password = bool(device.password)
+    has_snmp = bool(device.snmp_config)
+    
+    credential_status = {
+        "device_id": device_id,
+        "device_name": device.name,
+        "device_ip": device.ip,
+        "credentials": {
+            "username": {
+                "present": has_username,
+                "value": device.username if has_username else None
+            },
+            "password": {
+                "present": has_password,
+                "value": "Present" if has_password else None
+            },
+            "snmp_config": {
+                "present": has_snmp,
+                "details": device.snmp_config.dict() if has_snmp else None
+            }
+        },
+        "comprehensive_discovery_ready": has_username and has_password,
+        "status": "ready" if (has_username and has_password) else "incomplete",
+        "missing_fields": []
+    }
+    
+    if not has_username:
+        credential_status["missing_fields"].append("username")
+    if not has_password:
+        credential_status["missing_fields"].append("password")
+    
+    return credential_status
