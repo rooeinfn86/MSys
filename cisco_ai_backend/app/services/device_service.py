@@ -123,17 +123,26 @@ class DeviceService:
             except Exception as e:
                 print(f"⚠️  Could not delete DeviceSNMP records: {e}")
             
-            # 3. Delete DeviceInterfaces records (from interface.py)
+            # 3. Delete Interface records (from interface.py)
             try:
-                from app.models.interface import DeviceInterface
-                interface_count = self.db.query(DeviceInterface).filter(DeviceInterface.device_id == device_id).count()
-                if interface_count > 0:
-                    self.db.query(DeviceInterface).filter(DeviceInterface.device_id == device_id).delete()
-                    print(f"✅ Deleted {interface_count} DeviceInterface records for device {device_id}")
+                # Try to import Interface from the correct location
+                try:
+                    from app.models.interface import Interface
+                except ImportError:
+                    print(f"ℹ️  Interface module not available, skipping interface deletion")
+                    Interface = None
+                
+                if Interface:
+                    interface_count = self.db.query(Interface).filter(Interface.device_id == device_id).count()
+                    if interface_count > 0:
+                        self.db.query(Interface).filter(Interface.device_id == device_id).delete()
+                        print(f"✅ Deleted {interface_count} Interface records for device {device_id}")
+                    else:
+                        print(f"ℹ️  No Interface records found for device {device_id}")
                 else:
-                    print(f"ℹ️  No DeviceInterface records found for device {device_id}")
+                    print(f"ℹ️  Skipping Interface deletion (module not available)")
             except Exception as e:
-                print(f"⚠️  Could not delete DeviceInterface records: {e}")
+                print(f"⚠️  Could not delete Interface records: {e}")
             
             # 4. Delete DeviceLog records
             try:
@@ -158,8 +167,40 @@ class DeviceService:
                 except Exception as e:
                     print(f"ℹ️  Table {table_name} does not exist or error: {e}")
             
+            # 6. Check for any other potential foreign key relationships
+            # Look for any tables that might reference this device
+            try:
+                # Get all table names from the database
+                inspector = self.db.get_bind().dialect.inspector(self.db.get_bind())
+                all_tables = inspector.get_table_names()
+                
+                # Look for tables that might have device_id foreign keys
+                for table_name in all_tables:
+                    if table_name not in ["devices", "device_topology", "device_snmp", "interfaces", "device_logs"]:
+                        try:
+                            # Check if table has device_id column
+                            columns = inspector.get_columns(table_name)
+                            has_device_id = any(col['name'] == 'device_id' for col in columns)
+                            
+                            if has_device_id:
+                                result = self.db.execute(text(f"DELETE FROM {table_name} WHERE device_id = :device_id"), {"device_id": device_id})
+                                if result.rowcount > 0:
+                                    print(f"✅ Deleted {result.rowcount} records from {table_name} for device {device_id}")
+                        except Exception as e:
+                            # Skip tables that can't be accessed
+                            pass
+            except Exception as e:
+                print(f"ℹ️  Could not check for additional foreign key relationships: {e}")
+            
             # Finally, delete the device itself
             print(f"🗑️  Deleting device {device_id} ({device.name})")
+            
+            # Final check - make sure the device still exists
+            device_check = self.db.query(Device).filter(Device.id == device_id).first()
+            if not device_check:
+                print(f"⚠️  Device {device_id} was already deleted by another process")
+                return True
+            
             self.db.delete(device)
             self.db.commit()
             

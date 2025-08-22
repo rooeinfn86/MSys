@@ -224,7 +224,7 @@ async def delete_device(
         
         # Now delete the device
         device_service = DeviceService(db)
-        await device_service.delete_device(device_id, current_user)
+        device_service.delete_device(device_id, current_user)
         
         print(f"✅ Device {device_id} deleted successfully")
         return {"message": "Device deleted successfully"}
