@@ -427,6 +427,76 @@ async def agent_heartbeat(
         )
 
 
+@router.post("/authenticate")
+async def authenticate_agent(
+    auth_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Authenticate agent and return JWT token for heartbeat authentication."""
+    try:
+        agent_id = auth_data.get("agent_id")
+        agent_token = auth_data.get("agent_token")
+        
+        if not agent_id or not agent_token:
+            raise HTTPException(
+                status_code=400, 
+                detail="agent_id and agent_token are required"
+            )
+        
+        agent_service = AgentService(db)
+        
+        # Get agent and verify token
+        agent = await agent_service.get_agent(agent_id)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        if agent.agent_token != agent_token:
+            raise HTTPException(status_code=401, detail="Invalid agent token")
+        
+        if agent.status != "active":
+            raise HTTPException(status_code=403, detail="Agent is not active")
+        
+        # Generate JWT token for agent
+        from app.core.security import create_access_token
+        from datetime import timedelta
+        
+        # Create token with agent-specific claims
+        token_data = {
+            "sub": str(agent.id),
+            "username": f"agent_{agent.name}",
+            "user_id": agent.id,
+            "role": "agent",
+            "company_id": agent.company_id,
+            "organization_id": agent.organization_id,
+            "agent_id": agent.id
+        }
+        
+        # Token expires in 24 hours for agents
+        access_token = create_access_token(
+            data=token_data,
+            expires_delta=timedelta(hours=24)
+        )
+        
+        logger.info(f"Agent {agent.id} ({agent.name}) authenticated successfully")
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": 24 * 60 * 60,  # 24 hours in seconds
+            "agent_id": agent.id,
+            "agent_name": agent.name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error authenticating agent: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to authenticate agent"
+        )
+
+
 @router.get("/agent/organizations", response_model=List[Dict[str, Any]])
 async def get_agent_organizations(
     current_user: dict = Depends(get_current_user),
@@ -743,6 +813,7 @@ class CiscoAIAgent:
         self.agent_name = self.config.get("agent_name")
         self.agent_token = self.config.get("agent_token")
         self.backend_url = os.getenv("BACKEND_URL", "https://cisco-ai-backend-production.up.railway.app")
+        self.jwt_token = None
         
         logger.info(f"Initializing Cisco AI Agent: {{self.agent_name}} (ID: {{self.agent_id}})")
     
@@ -755,10 +826,40 @@ class CiscoAIAgent:
             logger.error(f"Failed to load config: {{e}}")
             sys.exit(1)
     
-    def send_heartbeat(self):
-        \"\"\"Send heartbeat to backend.\"\"\"
+    def authenticate(self):
+        \"\"\"Authenticate with backend to get JWT token.\"\"\"
         try:
-            headers = {{"Authorization": f"Bearer {{self.agent_token}}"}}
+            auth_url = f"{{self.backend_url}}/api/v1/agents/authenticate"
+            payload = {{
+                "agent_id": self.agent_id,
+                "agent_token": self.agent_token
+            }}
+            
+            response = requests.post(auth_url, json=payload, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.jwt_token = data.get("access_token")
+                logger.info("Authentication successful - JWT token obtained")
+                return True
+            else:
+                logger.warning(f"Authentication failed: {{response.status_code}}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Authentication error: {{e}}")
+            return False
+    
+    def send_heartbeat(self):
+        \"\"\"Send heartbeat to backend using JWT token.\"\"\"
+        try:
+            # Check if we have a valid JWT token
+            if not self.jwt_token:
+                logger.warning("No JWT token available - attempting to authenticate")
+                if not self.authenticate():
+                    return False
+            
+            headers = {{"Authorization": f"Bearer {{self.jwt_token}}"}}
             response = requests.post(
                 f"{{self.backend_url}}/api/v1/agents/heartbeat",
                 json={{"agent_token": self.agent_token}},
@@ -769,6 +870,26 @@ class CiscoAIAgent:
             if response.status_code == 200:
                 logger.info("Heartbeat sent successfully")
                 return True
+            elif response.status_code == 401:
+                # Token expired, re-authenticate
+                logger.info("JWT token expired - re-authenticating")
+                if self.authenticate():
+                    # Retry heartbeat with new token
+                    headers = {{"Authorization": f"Bearer {{self.jwt_token}}"}}
+                    retry_response = requests.post(
+                        f"{{self.backend_url}}/api/v1/agents/heartbeat",
+                        json={{"agent_token": self.agent_token}},
+                        headers=headers,
+                        timeout=10
+                    )
+                    if retry_response.status_code == 200:
+                        logger.info("Heartbeat sent successfully after re-authentication")
+                        return True
+                    else:
+                        logger.warning(f"Heartbeat retry failed: {{retry_response.status_code}}")
+                        return False
+                else:
+                    return False
             else:
                 logger.warning(f"Heartbeat failed: {{response.status_code}}")
                 return False
@@ -780,6 +901,11 @@ class CiscoAIAgent:
     def run(self):
         \"\"\"Main agent loop.\"\"\"
         logger.info("Starting Cisco AI Agent...")
+        
+        # Authenticate first
+        if not self.authenticate():
+            logger.error("Failed to authenticate - cannot start agent")
+            return
         
         while True:
             try:
