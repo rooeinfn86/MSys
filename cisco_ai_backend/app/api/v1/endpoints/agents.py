@@ -34,6 +34,11 @@ async def register_agent(
 ):
     """Register a new agent for an organization."""
     try:
+        # Debug logging to see what data is received
+        logger.info(f"Agent registration request received:")
+        logger.info(f"  - agent_data: {agent_data}")
+        logger.info(f"  - current_user: {current_user}")
+        
         agent_service = AgentService(db)
         
         # Register agent using service
