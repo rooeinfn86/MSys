@@ -211,38 +211,35 @@ const CompanyTokenManagement = () => {
   const handleDeploy = async () => {
     try {
       setDeploymentLoading(true);
-      const companyToken = localStorage.getItem('company_token');
       
-      if (!companyToken) {
-        setError('Company token not found. Please generate a company token first.');
-        return;
-      }
-
       // Debug the data before creating payload
       console.log('Raw deployment data:', deploymentData);
-      console.log('Company token from localStorage:', companyToken);
       
       // Use the working register endpoint with correct payload structure
-      // Try including company token in payload instead of headers
       const payload = {
         name: deploymentData.agentName,
         organization_id: Number(deploymentData.selectedOrgId),
         networks: [Number(deploymentData.selectedNetworkId)],
-        capabilities: ["snmp_discovery", "ssh_config", "health_monitoring"],
-        version: "1.0.0",
-        company_token: companyToken  // Add company token to payload
+        capabilities: {
+          snmp: true,
+          ssh: true,
+          ping: true,
+          topology: true,
+          monitoring: true,
+          configuration: false
+        },
+        version: "1.0.0"
+        // Remove company_token field - not expected by backend schema
       };
 
       console.log('Agent registration payload:', payload);
-      console.log('Using company token:', companyToken);
 
       console.log('Sending request to:', '/api/v1/agents/register');
       console.log('Request headers:', {
-        'x-company-token': companyToken ? 'Present' : 'Missing',
-        'X-Company-Token': companyToken ? 'Present' : 'Missing'
+        'Authorization': 'Bearer [JWT Token]' // JWT token is handled by axiosInstance
       });
       
-      // Try without custom headers first (let axiosInstance handle Authorization)
+      // Send request with correct payload format
       const response = await axiosInstance.post('/api/v1/agents/register', payload);
 
       console.log('Backend response:', response);

@@ -56,6 +56,8 @@ async def register_agent(
             status=agent.status,
             token_status=agent.token_status,
             health=_create_agent_health(agent),
+            issued_at=_ensure_timezone_aware(agent.issued_at),
+            created_by=agent.created_by,
             created_at=_ensure_timezone_aware(agent.created_at),
             updated_at=_ensure_timezone_aware(agent.updated_at),
             last_heartbeat=_ensure_timezone_aware(agent.last_heartbeat),
