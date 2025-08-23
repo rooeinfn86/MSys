@@ -627,14 +627,84 @@ async def download_agent_package(
             elif current_user["role"] == "engineer":
                 raise HTTPException(status_code=403, detail="Engineers cannot download agent packages")
         
-        # For now, return a simple response indicating the endpoint exists
-        # In a real implementation, this would generate and return the actual agent package
-        return {
-            "message": "Agent download endpoint working",
-            "agent_id": agent_id,
-            "agent_name": agent.name,
-            "status": "ready_for_download"
-        }
+        # Generate a simple ZIP file with agent configuration
+        import zipfile
+        import io
+        import json
+        
+        # Create ZIP file in memory
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Add agent configuration file
+            agent_config = {
+                "agent_id": agent.id,
+                "agent_name": agent.name,
+                "agent_token": agent.agent_token,
+                "company_id": agent.company_id,
+                "organization_id": agent.organization_id,
+                "capabilities": agent.capabilities,
+                "version": agent.version,
+                "status": agent.status,
+                "token_status": agent.token_status,
+                "created_at": agent.created_at.isoformat() if agent.created_at else None,
+                "networks": [access.network_id for access in agent.network_access] if hasattr(agent, 'network_access') else []
+            }
+            
+            zip_file.writestr("agent_config.json", json.dumps(agent_config, indent=2, default=str))
+            
+            # Add a simple README file
+            readme_content = f"""# Cisco AI Agent Package
+
+Agent Name: {agent.name}
+Agent ID: {agent.id}
+Version: {agent.version}
+
+## Installation Instructions
+
+1. Extract this ZIP file
+2. Read agent_config.json for configuration details
+3. Follow the deployment guide for your platform
+
+## Configuration
+
+The agent_config.json file contains all necessary configuration including:
+- Agent authentication token
+- Network access permissions
+- Capabilities and settings
+
+## Support
+
+Contact your system administrator for deployment assistance.
+"""
+            zip_file.writestr("README.md", readme_content)
+            
+            # Add a simple deployment script (Windows batch file)
+            deploy_script = f"""@echo off
+echo Installing Cisco AI Agent: {agent.name}
+echo.
+echo Agent ID: {agent.id}
+echo Version: {agent.version}
+echo.
+echo Please refer to the README.md file for detailed instructions.
+echo.
+pause
+"""
+            zip_file.writestr("install.bat", deploy_script)
+        
+        # Reset buffer position
+        zip_buffer.seek(0)
+        
+        # Return the ZIP file as a response
+        from fastapi.responses import StreamingResponse
+        
+        return StreamingResponse(
+            io.BytesIO(zip_buffer.getvalue()),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename=cisco_ai_agent_{agent.name}_{agent.id}.zip"
+            }
+        )
         
     except HTTPException:
         raise
