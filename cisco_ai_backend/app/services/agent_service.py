@@ -133,7 +133,7 @@ class AgentService:
                 company_id=company_id,
                 organization_id=agent_data.organization_id,
                 agent_token=agent_token,
-                capabilities=agent_data.capabilities,
+                capabilities=agent_data.capabilities.model_dump() if hasattr(agent_data.capabilities, 'model_dump') else agent_data.capabilities,
                 version=agent_data.version,
                 status="offline",
                 token_status="active",
