@@ -706,14 +706,14 @@ cryptography>=3.4.8
                 logger.info(f"Adding requirements.txt to ZIP")
                 zip_file.writestr("requirements.txt", requirements_content)
                 
-                # Add the main agent executable
-                agent_py_content = f'''#!/usr/bin/env python3
-"""
+                # Add the main agent executable with simpler string formatting
+                agent_py_content = f"""#!/usr/bin/env python3
+\"\"\"
 Cisco AI Agent - Network Discovery and Monitoring Agent
 Agent ID: {agent.id}
 Agent Name: {agent.name}
 Version: {agent.version}
-"""
+\"\"\"
 
 import json
 import requests
@@ -737,31 +737,31 @@ logger = logging.getLogger(__name__)
 
 class CiscoAIAgent:
     def __init__(self, config_file="agent_config.json"):
-        """Initialize the agent with configuration."""
+        \"\"\"Initialize the agent with configuration.\"\"\"
         self.config = self.load_config(config_file)
         self.agent_id = self.config.get("agent_id")
         self.agent_name = self.config.get("agent_name")
         self.agent_token = self.config.get("agent_token")
         self.backend_url = os.getenv("BACKEND_URL", "https://cisco-ai-backend-production.up.railway.app")
         
-        logger.info(f"Initializing Cisco AI Agent: {self.agent_name} (ID: {self.agent_id})")
+        logger.info(f"Initializing Cisco AI Agent: {{self.agent_name}} (ID: {{self.agent_id}})")
     
     def load_config(self, config_file):
-        """Load agent configuration from JSON file."""
+        \"\"\"Load agent configuration from JSON file.\"\"\"
         try:
             with open(config_file, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            logger.error(f"Failed to load config: {e}")
+            logger.error(f"Failed to load config: {{e}}")
             sys.exit(1)
     
     def send_heartbeat(self):
-        """Send heartbeat to backend."""
+        \"\"\"Send heartbeat to backend.\"\"\"
         try:
-            headers = {"Authorization": f"Bearer {self.agent_token}"}
+            headers = {{"Authorization": f"Bearer {{self.agent_token}}"}}
             response = requests.post(
-                f"{self.backend_url}/api/v1/agents/heartbeat",
-                json={"agent_token": self.agent_token},
+                f"{{self.backend_url}}/api/v1/agents/heartbeat",
+                json={{"agent_token": self.agent_token}},
                 headers=headers,
                 timeout=10
             )
@@ -770,15 +770,15 @@ class CiscoAIAgent:
                 logger.info("Heartbeat sent successfully")
                 return True
             else:
-                logger.warning(f"Heartbeat failed: {response.status_code}")
+                logger.warning(f"Heartbeat failed: {{response.status_code}}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Heartbeat error: {e}")
+            logger.error(f"Heartbeat error: {{e}}")
             return False
     
     def run(self):
-        """Main agent loop."""
+        \"\"\"Main agent loop.\"\"\"
         logger.info("Starting Cisco AI Agent...")
         
         while True:
@@ -793,13 +793,13 @@ class CiscoAIAgent:
                 logger.info("Agent stopped by user")
                 break
             except Exception as e:
-                logger.error(f"Agent error: {e}")
+                logger.error(f"Agent error: {{e}}")
                 time.sleep(30)  # Wait before retry
 
 if __name__ == "__main__":
     agent = CiscoAIAgent()
     agent.run()
-'''
+"""
                 logger.info(f"Adding cisco_ai_agent.py to ZIP")
                 zip_file.writestr("cisco_ai_agent.py", agent_py_content)
                 
