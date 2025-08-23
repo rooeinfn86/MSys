@@ -93,11 +93,11 @@ async def get_all_agents(
                 status=agent.status,
                 token_status=agent.token_status,
                 health=_create_agent_health(agent),
-                issued_at=agent.issued_at,
+                issued_at=_ensure_timezone_aware(agent.issued_at),
                 created_by=agent.created_by,
-                created_at=agent.created_at,
-                updated_at=agent.updated_at,
-                last_heartbeat=agent.last_heartbeat,
+                created_at=_ensure_timezone_aware(agent.created_at),
+                updated_at=_ensure_timezone_aware(agent.updated_at),
+                last_heartbeat=_ensure_timezone_aware(agent.last_heartbeat),
                 last_ip=getattr(agent, 'last_ip', None),
                 description=getattr(agent, 'description', None)
             )
@@ -145,11 +145,11 @@ async def get_agent(
             status=agent.status,
             token_status=agent.token_status,
             health=_create_agent_health(agent),
-            issued_at=agent.issued_at,
+            issued_at=_ensure_timezone_aware(agent.issued_at),
             created_by=agent.created_by,
-            created_at=agent.created_at,
-            updated_at=agent.updated_at,
-            last_heartbeat=agent.last_heartbeat,
+            created_at=_ensure_timezone_aware(agent.created_at),
+            updated_at=_ensure_timezone_aware(agent.updated_at),
+            last_heartbeat=_ensure_timezone_aware(agent.last_heartbeat),
             last_ip=getattr(agent, 'last_ip', None),
             description=getattr(agent, 'description', None)
         )
@@ -202,11 +202,11 @@ async def update_agent(
             status=updated_agent.status,
             token_status=updated_agent.token_status,
             health=_create_agent_health(updated_agent),
-            issued_at=updated_agent.issued_at,
+            issued_at=_ensure_timezone_aware(updated_agent.issued_at),
             created_by=updated_agent.created_by,
-            created_at=updated_agent.created_at,
-            updated_at=updated_agent.updated_at,
-            last_heartbeat=updated_agent.last_heartbeat,
+            created_at=_ensure_timezone_aware(updated_agent.created_at),
+            updated_at=_ensure_timezone_aware(updated_agent.updated_at),
+            last_heartbeat=_ensure_timezone_aware(updated_agent.last_heartbeat),
             last_ip=getattr(updated_agent, 'last_ip', None),
             description=getattr(updated_agent, 'description', None)
         )
@@ -267,15 +267,19 @@ async def rotate_agent_token(
             company_id=updated_agent.company_id,
             organization_id=updated_agent.organization_id,
             agent_token=updated_agent.agent_token,
-            capabilities=updated_agent.capabilities,
+            capabilities=_convert_capabilities_to_model(updated_agent.capabilities),
+            scopes=_convert_scopes_to_model(updated_agent.scopes),
             version=updated_agent.version,
             status=updated_agent.status,
             token_status=updated_agent.token_status,
-            scopes=updated_agent.scopes,
-            issued_at=updated_agent.issued_at,
+            health=_create_agent_health(updated_agent),
+            issued_at=_ensure_timezone_aware(updated_agent.issued_at),
             created_by=updated_agent.created_by,
-            created_at=updated_agent.created_at,
-            updated_at=updated_agent.updated_at
+            created_at=_ensure_timezone_aware(updated_agent.created_at),
+            updated_at=_ensure_timezone_aware(updated_agent.updated_at),
+            last_heartbeat=_ensure_timezone_aware(updated_agent.last_heartbeat),
+            last_ip=getattr(updated_agent, 'last_ip', None),
+            description=getattr(updated_agent, 'description', None)
         )
         
     except ValueError as e:
@@ -312,10 +316,13 @@ async def revoke_agent_token(
             status=updated_agent.status,
             token_status=updated_agent.token_status,
             scopes=updated_agent.scopes,
-            issued_at=updated_agent.issued_at,
+            issued_at=_ensure_timezone_aware(updated_agent.issued_at),
             created_by=updated_agent.created_by,
-            created_at=updated_agent.created_at,
-            updated_at=updated_agent.updated_at
+            created_at=_ensure_timezone_aware(updated_agent.created_at),
+            updated_at=_ensure_timezone_aware(updated_agent.updated_at),
+            last_heartbeat=_ensure_timezone_aware(updated_agent.last_heartbeat),
+            last_ip=getattr(updated_agent, 'last_ip', None),
+            description=getattr(updated_agent, 'description', None)
         )
         
     except ValueError as e:
@@ -590,6 +597,15 @@ async def test_agent_auth(
 
 
 # Helper functions to convert database data to schema format
+def _ensure_timezone_aware(dt: Optional[datetime]) -> Optional[datetime]:
+    """Ensure datetime is timezone-aware. If naive, assume UTC."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _convert_capabilities_to_model(capabilities_data) -> AgentCapabilities:
     """Convert database capabilities data to AgentCapabilities model."""
     if isinstance(capabilities_data, list):
@@ -633,9 +649,18 @@ def _create_agent_health(agent) -> AgentHealth:
         uptime_seconds=None
     )
     
+    # Ensure last_heartbeat is timezone-aware
+    last_heartbeat = None
+    if agent.last_heartbeat:
+        if agent.last_heartbeat.tzinfo is None:
+            # If timezone-naive, assume UTC
+            last_heartbeat = agent.last_heartbeat.replace(tzinfo=timezone.utc)
+        else:
+            last_heartbeat = agent.last_heartbeat
+    
     return AgentHealth(
         status=agent.status,
-        last_heartbeat=agent.last_heartbeat,
+        last_heartbeat=last_heartbeat,
         uptime_seconds=None,  # Not available in database
         memory_usage_mb=None,  # Not available in database
         cpu_usage_percent=None,  # Not available in database

@@ -63,7 +63,16 @@ def calculate_agent_health_score(
     
     # Deduct points for old heartbeat
     if last_heartbeat:
-        age_minutes = (datetime.now(timezone.utc) - last_heartbeat).total_seconds() / 60
+        # Ensure both datetimes are timezone-aware for comparison
+        now = datetime.now(timezone.utc)
+        
+        # If last_heartbeat is timezone-naive, assume it's UTC
+        if last_heartbeat.tzinfo is None:
+            last_heartbeat_utc = last_heartbeat.replace(tzinfo=timezone.utc)
+        else:
+            last_heartbeat_utc = last_heartbeat
+        
+        age_minutes = (now - last_heartbeat_utc).total_seconds() / 60
         if age_minutes > 10:
             score -= min(50, int(age_minutes - 10) * 2)
     
