@@ -758,10 +758,10 @@ class CiscoAIAgent:
     def send_heartbeat(self):
         """Send heartbeat to backend."""
         try:
-            headers = {{"Authorization": f"Bearer {{self.agent_token}}"}}
+            headers = {"Authorization": f"Bearer {self.agent_token}"}
             response = requests.post(
-                f"{{self.backend_url}}/api/v1/agents/heartbeat",
-                json={{"agent_token": self.agent_token}},
+                f"{self.backend_url}/api/v1/agents/heartbeat",
+                json={"agent_token": self.agent_token},
                 headers=headers,
                 timeout=10
             )
@@ -770,11 +770,11 @@ class CiscoAIAgent:
                 logger.info("Heartbeat sent successfully")
                 return True
             else:
-                logger.warning(f"Heartbeat failed: {{response.status_code}}")
+                logger.warning(f"Heartbeat failed: {response.status_code}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Heartbeat error: {{e}}")
+            logger.error(f"Heartbeat error: {e}")
             return False
     
     def run(self):
@@ -793,7 +793,7 @@ class CiscoAIAgent:
                 logger.info("Agent stopped by user")
                 break
             except Exception as e:
-                logger.error(f"Agent error: {{e}}")
+                logger.error(f"Agent error: {e}")
                 time.sleep(30)  # Wait before retry
 
 if __name__ == "__main__":
