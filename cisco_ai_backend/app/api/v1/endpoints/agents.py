@@ -19,7 +19,7 @@ from app.utils.agent_utils import (
 )
 from app.schemas.agent.agent import (
     AgentCreate, AgentUpdate, AgentResponse, AgentRegistration,
-    AgentToken, AgentHealth
+    AgentToken, AgentHealth, AgentCapabilities, AgentScopes
 )
 
 logger = logging.getLogger(__name__)
@@ -87,15 +87,19 @@ async def get_all_agents(
                 company_id=agent.company_id,
                 organization_id=agent.organization_id,
                 agent_token=agent.agent_token,
-                capabilities=agent.capabilities,
+                capabilities=_convert_capabilities_to_model(agent.capabilities),
+                scopes=_convert_scopes_to_model(agent.scopes),
                 version=agent.version,
                 status=agent.status,
                 token_status=agent.token_status,
-                scopes=agent.scopes,
+                health=_create_agent_health(agent),
                 issued_at=agent.issued_at,
                 created_by=agent.created_by,
                 created_at=agent.created_at,
-                updated_at=agent.updated_at
+                updated_at=agent.updated_at,
+                last_heartbeat=agent.last_heartbeat,
+                last_ip=getattr(agent, 'last_ip', None),
+                description=getattr(agent, 'description', None)
             )
             for agent in agents
         ]
@@ -135,15 +139,19 @@ async def get_agent(
             company_id=agent.company_id,
             organization_id=agent.organization_id,
             agent_token=agent.agent_token,
-            capabilities=agent.capabilities,
+            capabilities=_convert_capabilities_to_model(agent.capabilities),
+            scopes=_convert_scopes_to_model(agent.scopes),
             version=agent.version,
             status=agent.status,
             token_status=agent.token_status,
-            scopes=agent.scopes,
+            health=_create_agent_health(agent),
             issued_at=agent.issued_at,
             created_by=agent.created_by,
             created_at=agent.created_at,
-            updated_at=agent.updated_at
+            updated_at=agent.updated_at,
+            last_heartbeat=agent.last_heartbeat,
+            last_ip=getattr(agent, 'last_ip', None),
+            description=getattr(agent, 'description', None)
         )
         
     except HTTPException:
@@ -188,15 +196,19 @@ async def update_agent(
             company_id=updated_agent.company_id,
             organization_id=updated_agent.organization_id,
             agent_token=updated_agent.agent_token,
-            capabilities=updated_agent.capabilities,
+            capabilities=_convert_capabilities_to_model(updated_agent.capabilities),
+            scopes=_convert_scopes_to_model(updated_agent.scopes),
             version=updated_agent.version,
             status=updated_agent.status,
             token_status=updated_agent.token_status,
-            scopes=updated_agent.scopes,
+            health=_create_agent_health(updated_agent),
             issued_at=updated_agent.issued_at,
             created_by=updated_agent.created_by,
             created_at=updated_agent.created_at,
-            updated_at=updated_agent.updated_at
+            updated_at=updated_agent.updated_at,
+            last_heartbeat=updated_agent.last_heartbeat,
+            last_ip=getattr(updated_agent, 'last_ip', None),
+            description=getattr(updated_agent, 'description', None)
         )
         
     except HTTPException:
@@ -575,4 +587,60 @@ async def test_agent_auth(
             status_code=500,
             detail="Failed to test authentication"
         )
+
+
+# Helper functions to convert database data to schema format
+def _convert_capabilities_to_model(capabilities_data) -> AgentCapabilities:
+    """Convert database capabilities data to AgentCapabilities model."""
+    if isinstance(capabilities_data, list):
+        # Convert list to dict format
+        capabilities_dict = {}
+        for capability in capabilities_data:
+            if capability in ['snmp', 'ssh', 'ping', 'topology', 'monitoring', 'configuration']:
+                capabilities_dict[capability] = True
+        return AgentCapabilities(**capabilities_dict)
+    elif isinstance(capabilities_data, dict):
+        return AgentCapabilities(**capabilities_data)
+    else:
+        # Default capabilities
+        return AgentCapabilities()
+
+
+def _convert_scopes_to_model(scopes_data) -> AgentScopes:
+    """Convert database scopes data to AgentScopes model."""
+    if isinstance(scopes_data, list):
+        # Convert list to dict format
+        return AgentScopes(
+            networks=[],
+            organizations=[],
+            permissions=scopes_data
+        )
+    elif isinstance(scopes_data, dict):
+        return AgentScopes(**scopes_data)
+    else:
+        # Default scopes
+        return AgentScopes()
+
+
+def _create_agent_health(agent) -> AgentHealth:
+    """Create AgentHealth model from agent data."""
+    from app.utils.agent_utils import calculate_agent_health_score
+    
+    health_score = calculate_agent_health_score(
+        last_heartbeat=agent.last_heartbeat,
+        error_count=0,
+        response_time_ms=None,
+        uptime_seconds=None
+    )
+    
+    return AgentHealth(
+        agent_id=agent.id,
+        agent_name=agent.name,
+        status=agent.status,
+        health_score=health_score,
+        last_heartbeat=agent.last_heartbeat.isoformat() if agent.last_heartbeat else None,
+        capabilities=agent.capabilities,
+        token_status=agent.token_status,
+        last_used_at=agent.last_used_at.isoformat() if agent.last_used_at else None
+    )
 
