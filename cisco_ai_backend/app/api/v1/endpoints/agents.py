@@ -634,13 +634,13 @@ def _create_agent_health(agent) -> AgentHealth:
     )
     
     return AgentHealth(
-        agent_id=agent.id,
-        agent_name=agent.name,
         status=agent.status,
-        health_score=health_score,
-        last_heartbeat=agent.last_heartbeat.isoformat() if agent.last_heartbeat else None,
-        capabilities=agent.capabilities,
-        token_status=agent.token_status,
-        last_used_at=agent.last_used_at.isoformat() if agent.last_used_at else None
+        last_heartbeat=agent.last_heartbeat,
+        uptime_seconds=None,  # Not available in database
+        memory_usage_mb=None,  # Not available in database
+        cpu_usage_percent=None,  # Not available in database
+        disk_usage_percent=None,  # Not available in database
+        error_count=0,
+        last_error=None
     )
 
