@@ -627,34 +627,39 @@ async def download_agent_package(
             elif current_user["role"] == "engineer":
                 raise HTTPException(status_code=403, detail="Engineers cannot download agent packages")
         
-        # Generate a simple ZIP file with agent configuration
+        # Generate a comprehensive ZIP file with agent executable and dependencies
         import zipfile
         import io
         import json
+        import os
         
         # Create ZIP file in memory
         zip_buffer = io.BytesIO()
         
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            # Add agent configuration file
-            agent_config = {
-                "agent_id": agent.id,
-                "agent_name": agent.name,
-                "agent_token": agent.agent_token,
-                "company_id": agent.company_id,
-                "organization_id": agent.organization_id,
-                "capabilities": agent.capabilities,
-                "version": agent.version,
-                "status": agent.status,
-                "token_status": agent.token_status,
-                "created_at": agent.created_at.isoformat() if agent.created_at else None,
-                "networks": [access.network_id for access in agent.network_access] if hasattr(agent, 'network_access') else []
-            }
-            
-            zip_file.writestr("agent_config.json", json.dumps(agent_config, indent=2, default=str))
-            
-            # Add a simple README file
-            readme_content = f"""# Cisco AI Agent Package
+        logger.info(f"Creating ZIP file for agent {agent.id} ({agent.name})")
+        
+        try:
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Add agent configuration file
+                agent_config = {
+                    "agent_id": agent.id,
+                    "agent_name": agent.name,
+                    "agent_token": agent.agent_token,
+                    "company_id": agent.company_id,
+                    "organization_id": agent.organization_id,
+                    "capabilities": agent.capabilities,
+                    "version": agent.version,
+                    "status": agent.status,
+                    "token_status": agent.token_status,
+                    "created_at": agent.created_at.isoformat() if agent.created_at else None,
+                    "networks": [access.network_id for access in agent.network_access] if hasattr(agent, 'network_access') else []
+                }
+                
+                logger.info(f"Adding agent_config.json to ZIP")
+                zip_file.writestr("agent_config.json", json.dumps(agent_config, indent=2, default=str))
+                
+                # Add a comprehensive README file
+                readme_content = f"""# Cisco AI Agent Package
 
 Agent Name: {agent.name}
 Agent ID: {agent.id}
@@ -662,9 +667,10 @@ Version: {agent.version}
 
 ## Installation Instructions
 
-1. Extract this ZIP file
-2. Read agent_config.json for configuration details
-3. Follow the deployment guide for your platform
+1. Extract this ZIP file to a directory
+2. Ensure Python 3.8+ is installed
+3. Install dependencies: `pip install -r requirements.txt`
+4. Run the agent: `python cisco_ai_agent.py`
 
 ## Configuration
 
@@ -673,27 +679,191 @@ The agent_config.json file contains all necessary configuration including:
 - Network access permissions
 - Capabilities and settings
 
+## Files Included
+
+- `cisco_ai_agent.py` - Main agent executable
+- `requirements.txt` - Python dependencies
+- `agent_config.json` - Agent configuration
+- `install.bat` - Windows installation script
+- `README.md` - This file
+
 ## Support
 
 Contact your system administrator for deployment assistance.
 """
-            zip_file.writestr("README.md", readme_content)
+                logger.info(f"Adding README.md to ZIP")
+                zip_file.writestr("README.md", readme_content)
+                
+                # Add requirements.txt with necessary dependencies
+                requirements_content = """# Cisco AI Agent Dependencies
+requests>=2.28.0
+psutil>=5.9.0
+netmiko>=4.2.0
+pysnmp>=4.4.12
+paramiko>=3.1.0
+cryptography>=3.4.8
+"""
+                logger.info(f"Adding requirements.txt to ZIP")
+                zip_file.writestr("requirements.txt", requirements_content)
+                
+                # Add the main agent executable
+                agent_py_content = f'''#!/usr/bin/env python3
+"""
+Cisco AI Agent - Network Discovery and Monitoring Agent
+Agent ID: {agent.id}
+Agent Name: {agent.name}
+Version: {agent.version}
+"""
+
+import json
+import requests
+import time
+import logging
+import sys
+import os
+from datetime import datetime
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('agent.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+class CiscoAIAgent:
+    def __init__(self, config_file="agent_config.json"):
+        """Initialize the agent with configuration."""
+        self.config = self.load_config(config_file)
+        self.agent_id = self.config.get("agent_id")
+        self.agent_name = self.config.get("agent_name")
+        self.agent_token = self.config.get("agent_token")
+        self.backend_url = os.getenv("BACKEND_URL", "https://cisco-ai-backend-production.up.railway.app")
+        
+        logger.info(f"Initializing Cisco AI Agent: {self.agent_name} (ID: {self.agent_id})")
+    
+    def load_config(self, config_file):
+        """Load agent configuration from JSON file."""
+        try:
+            with open(config_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load config: {e}")
+            sys.exit(1)
+    
+    def send_heartbeat(self):
+        """Send heartbeat to backend."""
+        try:
+            headers = {{"Authorization": f"Bearer {{self.agent_token}}"}}
+            response = requests.post(
+                f"{{self.backend_url}}/api/v1/agents/heartbeat",
+                json={{"agent_token": self.agent_token}},
+                headers=headers,
+                timeout=10
+            )
             
-            # Add a simple deployment script (Windows batch file)
-            deploy_script = f"""@echo off
-echo Installing Cisco AI Agent: {agent.name}
+            if response.status_code == 200:
+                logger.info("Heartbeat sent successfully")
+                return True
+            else:
+                logger.warning(f"Heartbeat failed: {{response.status_code}}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Heartbeat error: {{e}}")
+            return False
+    
+    def run(self):
+        """Main agent loop."""
+        logger.info("Starting Cisco AI Agent...")
+        
+        while True:
+            try:
+                # Send heartbeat
+                self.send_heartbeat()
+                
+                # Wait before next heartbeat
+                time.sleep(60)  # 1 minute intervals
+                
+            except KeyboardInterrupt:
+                logger.info("Agent stopped by user")
+                break
+            except Exception as e:
+                logger.error(f"Agent error: {{e}}")
+                time.sleep(30)  # Wait before retry
+
+if __name__ == "__main__":
+    agent = CiscoAIAgent()
+    agent.run()
+'''
+                logger.info(f"Adding cisco_ai_agent.py to ZIP")
+                zip_file.writestr("cisco_ai_agent.py", agent_py_content)
+                
+                # Add a Windows installation script
+                deploy_script = f"""@echo off
+echo ========================================
+echo Cisco AI Agent Installation
+echo ========================================
 echo.
+echo Agent Name: {agent.name}
 echo Agent ID: {agent.id}
 echo Version: {agent.version}
 echo.
-echo Please refer to the README.md file for detailed instructions.
+echo Installing dependencies...
+pip install -r requirements.txt
+echo.
+echo Dependencies installed successfully!
+echo.
+echo To start the agent, run:
+echo   python cisco_ai_agent.py
+echo.
+echo The agent will start monitoring and send heartbeats to the backend.
 echo.
 pause
 """
-            zip_file.writestr("install.bat", deploy_script)
+                logger.info(f"Adding install.bat to ZIP")
+                zip_file.writestr("install.bat", deploy_script)
+                
+                # Add a Linux/Mac installation script
+                install_sh_content = f"""#!/bin/bash
+echo "========================================"
+echo "Cisco AI Agent Installation"
+echo "========================================"
+echo ""
+echo "Agent Name: {agent.name}"
+echo "Agent ID: {agent.id}"
+echo "Version: {agent.version}"
+echo ""
+echo "Installing dependencies..."
+pip3 install -r requirements.txt
+echo ""
+echo "Dependencies installed successfully!"
+echo ""
+echo "To start the agent, run:"
+echo "  python3 cisco_ai_agent.py"
+echo ""
+echo "The agent will start monitoring and send heartbeats to the backend."
+echo ""
+"""
+                logger.info(f"Adding install.sh to ZIP")
+                zip_file.writestr("install.sh", install_sh_content)
+                
+                # List all files in ZIP for debugging
+                file_list = zip_file.namelist()
+                logger.info(f"ZIP file created with {len(file_list)} files: {file_list}")
+        
+        except Exception as zip_error:
+            logger.error(f"Error creating ZIP file: {zip_error}")
+            raise HTTPException(status_code=500, detail=f"Failed to create ZIP file: {str(zip_error)}")
         
         # Reset buffer position
         zip_buffer.seek(0)
+        
+        logger.info(f"ZIP file size: {len(zip_buffer.getvalue())} bytes")
         
         # Return the ZIP file as a response
         from fastapi.responses import StreamingResponse
