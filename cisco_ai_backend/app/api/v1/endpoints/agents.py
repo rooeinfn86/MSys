@@ -605,6 +605,47 @@ async def test_agent_auth(
         )
 
 
+@router.get("/download-agent/{agent_id}")
+async def download_agent_package(
+    agent_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Download agent package for deployment."""
+    try:
+        agent_service = AgentService(db)
+        
+        # Get agent to check permissions
+        agent = await agent_service.get_agent(agent_id)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Check permissions
+        if current_user["role"] not in ["superadmin", "full_control"]:
+            if current_user["role"] == "company_admin" and agent.company_id != current_user["company_id"]:
+                raise HTTPException(status_code=403, detail="Not authorized to access this agent")
+            elif current_user["role"] == "engineer":
+                raise HTTPException(status_code=403, detail="Engineers cannot download agent packages")
+        
+        # For now, return a simple response indicating the endpoint exists
+        # In a real implementation, this would generate and return the actual agent package
+        return {
+            "message": "Agent download endpoint working",
+            "agent_id": agent_id,
+            "agent_name": agent.name,
+            "status": "ready_for_download"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading agent package: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to download agent package"
+        )
+
+
 # Helper functions to convert database data to schema format
 def _ensure_timezone_aware(dt: Optional[datetime]) -> Optional[datetime]:
     """Ensure datetime is timezone-aware. If naive, assume UTC."""
