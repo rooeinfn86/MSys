@@ -4,13 +4,12 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.base import Network, Device, Agent, AgentNetworkAccess
+from app.api.v1.endpoints.agents import pending_discovery_requests
 
 logger = logging.getLogger(__name__)
 
 async def background_device_monitoring():
     """Background task that automatically checks device statuses every 3 minutes"""
-    
-    logger.info("🚀 Background device monitoring loop started - checking every 3 minutes")
     
     while True:
         try:
@@ -99,15 +98,9 @@ async def background_device_monitoring():
                             "source": "background_monitoring"
                         }
                         
-                        # Import pending_discovery_requests inside function to avoid circular imports
-                        try:
-                            from app.api.v1.endpoints.agents import pending_discovery_requests
-                            pending_discovery_requests[agent_id] = status_request
-                            total_devices_checked += len(devices)
-                            logger.info(f"✅ Background status check requested for network {network.name} with {len(devices)} devices via agent {agent.name}")
-                        except ImportError as import_err:
-                            logger.error(f"❌ Failed to import pending_discovery_requests: {import_err}")
-                            continue
+                        pending_discovery_requests[agent_id] = status_request
+                        total_devices_checked += len(devices)
+                        logger.info(f"✅ Background status check requested for network {network.name} with {len(devices)} devices via agent {agent.name}")
                         
                     except Exception as network_error:
                         logger.error(f"❌ Error checking network {network.name}: {network_error}")
@@ -120,20 +113,19 @@ async def background_device_monitoring():
             
         except Exception as e:
             logger.error(f"❌ Background monitoring error: {e}")
-            # Add error delay to prevent rapid restarts
-            logger.info("⏰ Waiting 1 minute due to error before retrying...")
-            await asyncio.sleep(60)  # Wait 1 minute on error before continuing
             
         # Wait 3 minutes (180 seconds) before next check
-        logger.info("⏰ Waiting 3 minutes (180 seconds) until next background check...")
-        logger.info(f"⏰ Next background check will be at: {(datetime.now(timezone.utc) + timedelta(seconds=180)).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        logger.info("⏰ Waiting 3 minutes until next background check...")
         await asyncio.sleep(180)
 
 def start_background_monitoring():
     """Start the background monitoring task"""
     try:
+        # Create and start the background task
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(background_device_monitoring())
         logger.info("🚀 Background device monitoring started successfully")
-        return background_device_monitoring()  # Return the coroutine directly
+        return task
     except Exception as e:
         logger.error(f"❌ Failed to start background monitoring: {e}")
         return None 

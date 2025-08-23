@@ -3327,8 +3327,6 @@ async def get_pending_discovery_requests(
         
         if agent_id in pending_discovery_requests:
             request = pending_discovery_requests[agent_id]
-            # Don't delete the request yet - keep it for credential storage during results processing
-            # del pending_discovery_requests[agent_id]  # REMOVED: This was causing credential loss
             
             # Handle both list and single object structures
             if isinstance(request, list):
@@ -3339,6 +3337,12 @@ async def get_pending_discovery_requests(
                     request_type = actual_request.get('type', 'unknown')
                     session_id = actual_request.get('session_id', 'no-session-id')
                     logger.info(f"🔍 DEBUG: Returning pending {request_type} request for agent {agent_id}: {session_id}")
+                    
+                    # Remove status_test requests immediately (they don't need credential storage)
+                    if request_type == 'status_test':
+                        del pending_discovery_requests[agent_id]
+                        logger.info(f"🔍 DEBUG: Removed status_test request for agent {agent_id} after delivery")
+                    
                     return [actual_request]
                 else:
                     logger.info(f"🔍 DEBUG: Empty list found for agent {agent_id}")
@@ -3349,6 +3353,12 @@ async def get_pending_discovery_requests(
                 request_type = request.get('type', 'unknown')
                 session_id = request.get('session_id', 'no-session-id')
                 logger.info(f"🔍 DEBUG: Returning pending {request_type} request for agent {agent_id}: {session_id}")
+                
+                # Remove status_test requests immediately (they don't need credential storage)
+                if request_type == 'status_test':
+                    del pending_discovery_requests[agent_id]
+                    logger.info(f"🔍 DEBUG: Removed status_test request for agent {agent_id} after delivery")
+                
                 return [request]
         
         logger.info(f"🔍 DEBUG: No pending discovery requests found for agent {agent_id}")
