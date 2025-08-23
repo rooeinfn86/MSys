@@ -45,15 +45,17 @@ async def register_agent(
             company_id=agent.company_id,
             organization_id=agent.organization_id,
             agent_token=agent.agent_token,
-            capabilities=agent.capabilities,
+            capabilities=_convert_capabilities_to_model(agent.capabilities),
+            scopes=_convert_scopes_to_model(agent.scopes),
             version=agent.version,
             status=agent.status,
             token_status=agent.token_status,
-            scopes=agent.scopes,
-            issued_at=agent.issued_at,
-            created_by=agent.created_by,
-            created_at=agent.created_at,
-            updated_at=agent.updated_at
+            health=_create_agent_health(agent),
+            created_at=_ensure_timezone_aware(agent.created_at),
+            updated_at=_ensure_timezone_aware(agent.updated_at),
+            last_heartbeat=_ensure_timezone_aware(agent.last_heartbeat),
+            last_ip=getattr(agent, 'last_ip', None),
+            description=getattr(agent, 'description', None)
         )
         
     except ValueError as e:
