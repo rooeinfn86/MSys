@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.base import Network, Device, Agent, AgentNetworkAccess
-from app.api.v1.endpoints.agents import pending_discovery_requests
+from app.services.agent_status_service import AgentStatusService
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,15 @@ async def background_device_monitoring():
                             "source": "background_monitoring"
                         }
                         
-                        pending_discovery_requests[agent_id] = status_request
+                        # Use AgentStatusService to store the status request
+                        status_service = AgentStatusService()
+                        status_service.create_status_test_request(
+                            session_id=session_id,
+                            network_id=network.id,
+                            device_id=None,  # Multiple devices
+                            ip_address=None,
+                            check_types=['ping', 'snmp', 'ssh']
+                        )
                         total_devices_checked += len(devices)
                         logger.info(f"✅ Background status check requested for network {network.name} with {len(devices)} devices via agent {agent.name}")
                         

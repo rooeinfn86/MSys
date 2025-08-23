@@ -7,7 +7,11 @@ from app.api.v1.endpoints import (
     compliance,
     topology,
     agents,
-    company_tokens
+    company_tokens,
+    agent_discovery,
+    agent_topology,
+    agent_status,
+    agent_websocket
 )
 from app.api.v1.endpoints.devices_crud import router as devices_crud_router
 from app.api.v1.endpoints.device_discovery import router as device_discovery_router
@@ -28,4 +32,8 @@ api_router.include_router(organizations.router, prefix="/org-network", tags=["or
 api_router.include_router(compliance.router, prefix="/compliance", tags=["compliance"])
 api_router.include_router(topology.router, prefix="/topology", tags=["topology"])
 api_router.include_router(agents.router, prefix="/agents", tags=["agents"])
+api_router.include_router(agent_discovery.router, prefix="/agents", tags=["agent-discovery"])
+api_router.include_router(agent_topology.router, prefix="/agents", tags=["agent-topology"])
+api_router.include_router(agent_status.router, prefix="/agents", tags=["agent-status"])
+api_router.include_router(agent_websocket.router, prefix="/agents", tags=["agent-websocket"])
 api_router.include_router(company_tokens.router, prefix="/company-tokens", tags=["company-tokens"]) 
