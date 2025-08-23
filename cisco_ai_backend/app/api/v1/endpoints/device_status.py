@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Dict, Any, List
+from typing import List, Optional
+from datetime import datetime, timezone
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.services.status_service import DeviceStatusService
+from app.services.device_service import DeviceService
 from app.services.permission_service import PermissionService
-from app.schemas.status import DeviceStatus, StatusRefreshRequest, StatusRefreshResponse, DeviceStatusSummary
-from app.models.base import User
-from datetime import datetime
+from app.services.status_service import DeviceStatusService
+from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceResponse, DeviceListResponse
+from app.schemas.status import DeviceStatus, StatusRefreshResponse, DeviceStatusSummary
 
 router = APIRouter(tags=["Device Status"])
 
@@ -15,18 +16,13 @@ router = APIRouter(tags=["Device Status"])
 async def get_device_status(
     device_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """Get the current status of a device."""
     try:
-        # Get the full user object from the database
-        user = db.query(User).filter(User.id == current_user["user_id"]).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         # Check permissions
         permission_service = PermissionService(db)
-        if not permission_service.check_device_modification_permission(user):
+        if not permission_service.check_device_modification_permission(current_user):
             raise HTTPException(status_code=403, detail="Not authorized to view device status")
 
         # Get device status using service
@@ -41,7 +37,7 @@ async def get_device_status(
             snmp=status_data["snmp"],
             ip=status_data["ip"],
             name="",  # You might want to get this from the device
-            last_checked=status_data.get("last_checked") or datetime.utcnow()
+            last_checked=status_data.get("last_checked") or datetime.now(timezone.utc)
         )
         
     except HTTPException:
@@ -54,18 +50,13 @@ async def get_device_status(
 async def refresh_device_status(
     device_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """Force refresh the status of a device."""
     try:
-        # Get the full user object from the database
-        user = db.query(User).filter(User.id == current_user["user_id"]).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         # Check permissions
         permission_service = PermissionService(db)
-        if not permission_service.check_device_modification_permission(user):
+        if not permission_service.check_device_modification_permission(current_user):
             raise HTTPException(status_code=403, detail="Not authorized to refresh device status")
 
         # Refresh device status using service
@@ -80,7 +71,7 @@ async def refresh_device_status(
             snmp=status_data["snmp"],
             ip=status_data["ip"],
             name="",  # You might want to get this from the device
-            last_checked=status_data.get("last_checked") or datetime.utcnow()
+            last_checked=status_data.get("last_checked") or datetime.now(timezone.utc)
         )
         
     except HTTPException:
@@ -93,22 +84,17 @@ async def refresh_device_status(
 async def refresh_all_device_status(
     network_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """Refresh status for all devices in a network."""
     try:
-        # Get the full user object from the database
-        user = db.query(User).filter(User.id == current_user["user_id"]).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         # Check permissions
         permission_service = PermissionService(db)
-        if not permission_service.check_device_modification_permission(user):
+        if not permission_service.check_device_modification_permission(current_user):
             raise HTTPException(status_code=403, detail="Not authorized to refresh device status")
 
         # Check network access
-        network = permission_service.check_network_access(user, network_id)
+        network = permission_service.check_network_access(current_user, network_id)
         if not network:
             raise HTTPException(status_code=403, detail="No access to this network")
 
@@ -137,14 +123,9 @@ async def get_device_status_summary(
 ):
     """Get a summary of device statuses in a network."""
     try:
-        # Get the full user object from the database
-        user = db.query(User).filter(User.id == current_user["user_id"]).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         # Check network access
         permission_service = PermissionService(db)
-        network = permission_service.check_network_access(user, network_id)
+        network = permission_service.check_network_access(current_user, network_id)
         if not network:
             raise HTTPException(status_code=403, detail="No access to this network")
 
@@ -172,18 +153,13 @@ async def report_device_status(
     network_id: int,
     device_statuses: List[dict],
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """Report device status from agent (for local network devices)."""
     try:
-        # Get the full user object from the database
-        user = db.query(User).filter(User.id == current_user["user_id"]).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         # Check network access
         permission_service = PermissionService(db)
-        network = permission_service.check_network_access(user, network_id)
+        network = permission_service.check_network_access(current_user, network_id)
         if not network:
             raise HTTPException(status_code=403, detail="No access to this network")
 

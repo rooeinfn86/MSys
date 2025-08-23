@@ -1,7 +1,7 @@
 import secrets
 import string
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -356,7 +356,7 @@ async def agent_heartbeat(
         # Log the heartbeat
         log_agent_token_event(db, agent.id, "heartbeat_received")
         
-        return {"message": "Heartbeat received", "timestamp": datetime.utcnow().isoformat()}
+        return {"message": "Heartbeat received", "timestamp": datetime.now(timezone.utc).isoformat()}
         
     except HTTPException:
         raise
@@ -389,7 +389,7 @@ async def agent_pong(
         # Log the pong
         log_agent_token_event(db, agent.id, "pong_received")
         
-        return {"message": "Pong received", "timestamp": datetime.utcnow().isoformat()}
+        return {"message": "Pong received", "timestamp": datetime.now(timezone.utc).isoformat()}
         
     except HTTPException:
         raise
@@ -1600,7 +1600,7 @@ class CiscoAIAgent:
             pong_data = {
                 'type': 'pong',
                 'agent_name': self.agent_name,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now(timezone.utc).isoformat()
             }
             
             # Send pong via HTTP POST
@@ -2277,7 +2277,7 @@ async def start_agent_discovery(
         
         print(f"🔍 DEBUG: All agents validated successfully, creating discovery session")
         # Create discovery session
-        session_id = f"discovery_{int(datetime.utcnow().timestamp())}_{agent_id}"
+        session_id = f"discovery_{int(datetime.now(timezone.utc).timestamp())}_{agent_id}"
         
         # Parse IP range for distribution
         print(f"🔍 DEBUG: Parsing IP range for distribution")
@@ -2400,7 +2400,7 @@ async def start_discovery_on_agent(agent: Agent, session_id: str, discovery_data
         global discovery_sessions
         if session_id not in discovery_sessions:
             discovery_sessions[session_id] = {
-                "started_at": datetime.utcnow(),
+                "started_at": datetime.now(timezone.utc),
                 "discovered_devices": [],
                 "errors": []
             }
@@ -2451,7 +2451,7 @@ async def get_discovery_status(
                 "progress": session_data.get("progress", 0),
                 "discovered_devices": session_data.get("discovered_devices", []),
                 "errors": session_data.get("errors", []),
-                "started_at": session_data.get("started_at", datetime.utcnow()),
+                "started_at": session_data.get("started_at", datetime.now(timezone.utc)),
                 "estimated_completion": session_data.get("estimated_completion")
             }
         
@@ -2462,7 +2462,7 @@ async def get_discovery_status(
             "progress": 0,
             "discovered_devices": [],
             "errors": [],
-            "started_at": datetime.utcnow(),
+            "started_at": datetime.now(timezone.utc),
             "estimated_completion": None
         }
         
@@ -2501,7 +2501,7 @@ async def submit_discovery_results(
         global discovery_sessions
         if session_id not in discovery_sessions:
             discovery_sessions[session_id] = {
-                "started_at": datetime.utcnow(),
+                "started_at": datetime.now(timezone.utc),
                 "discovered_devices": [],
                 "errors": []
             }
@@ -2670,7 +2670,7 @@ async def submit_discovery_results(
                     existing_device.ping_status = ping_ok
                     existing_device.snmp_status = snmp_ok
                     existing_device.discovery_method = discovery_method
-                    existing_device.updated_at = datetime.utcnow()
+                    existing_device.updated_at = datetime.now(timezone.utc)
                     
                     # Update or create DeviceTopology record with detailed MIB-2 information
                     existing_topology = db.query(DeviceTopology).filter(DeviceTopology.device_id == existing_device.id).first()
@@ -2681,7 +2681,7 @@ async def submit_discovery_results(
                         existing_topology.vendor = vendor
                         existing_topology.model = model
                         existing_topology.uptime = uptime_seconds
-                        existing_topology.last_polled = datetime.utcnow()
+                        existing_topology.last_polled = datetime.now(timezone.utc)
                         existing_topology.health_data = {
                             "location": device_data.get("location", ""),
                             "contact": device_data.get("contact", ""),
@@ -2696,7 +2696,7 @@ async def submit_discovery_results(
                             vendor=vendor,
                             model=model,
                             uptime=uptime_seconds,
-                            last_polled=datetime.utcnow(),
+                            last_polled=datetime.now(timezone.utc),
                             health_data={
                                 "location": device_data.get("location", ""),
                                 "contact": device_data.get("contact", ""),
@@ -2795,8 +2795,8 @@ async def submit_discovery_results(
                         ping_status=ping_ok,
                         snmp_status=snmp_ok,
                         discovery_method=discovery_method,
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow()
+                        created_at=datetime.now(timezone.utc),
+                        updated_at=datetime.now(timezone.utc)
                     )
                     db.add(new_device)
                     db.flush()  # Flush to get the device ID
@@ -2827,7 +2827,7 @@ async def submit_discovery_results(
                         vendor=vendor,
                         model=model,
                         uptime=uptime_seconds,
-                        last_polled=datetime.utcnow(),
+                        last_polled=datetime.now(timezone.utc),
                         health_data={
                             "location": device_data.get("location", ""),
                             "contact": device_data.get("contact", ""),
@@ -2897,6 +2897,13 @@ async def submit_discovery_results(
                 # Don't fail the entire request if logging fails
         
         logger.info(f"Received discovery results for session {session_id}: {len(discovered_devices)} devices, {len(errors)} errors")
+        
+        # Clean up pending discovery request after processing is complete
+        if agent_id in pending_discovery_requests:
+            pending_request = pending_discovery_requests[agent_id]
+            if pending_request.get("session_id") == session_id:
+                del pending_discovery_requests[agent_id]
+                logger.info(f"Cleaned up pending discovery request for agent {agent_id} and session {session_id}")
         
         return {
             "status": "received",
@@ -3320,8 +3327,8 @@ async def get_pending_discovery_requests(
         
         if agent_id in pending_discovery_requests:
             request = pending_discovery_requests[agent_id]
-            # Remove the request so it's only processed once
-            del pending_discovery_requests[agent_id]
+            # Don't delete the request yet - keep it for credential storage during results processing
+            # del pending_discovery_requests[agent_id]  # REMOVED: This was causing credential loss
             
             # Handle both list and single object structures
             if isinstance(request, list):
@@ -3385,7 +3392,7 @@ async def update_discovery_status(
         global discovery_sessions
         if session_id not in discovery_sessions:
             discovery_sessions[session_id] = {
-                "started_at": datetime.utcnow(),
+                "started_at": datetime.now(timezone.utc),
                 "discovered_devices": [],
                 "errors": []
             }
@@ -3438,7 +3445,7 @@ async def update_discovery_progress(
         global discovery_sessions
         if session_id not in discovery_sessions:
             discovery_sessions[session_id] = {
-                "started_at": datetime.utcnow(),
+                "started_at": datetime.now(timezone.utc),
                 "discovered_devices": [],
                 "errors": []
             }
