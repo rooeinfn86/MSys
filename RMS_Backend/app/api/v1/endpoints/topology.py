@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.api import deps
 from app.core.snmp_poller import SNMPPoller
@@ -383,7 +383,7 @@ async def discover_topology_via_agents(network_id: int, devices: List[Device], d
             
             # Update agent discovery status
             agent.topology_discovery_status = "discovering"
-            agent.last_topology_discovery = datetime.utcnow()
+            agent.last_topology_discovery = datetime.now(timezone.utc)
             agent.topology_discovery_progress = 0
             agent.topology_error_message = None
             

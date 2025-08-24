@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.base import Network, Device, Agent, AgentNetworkAccess
-from app.api.v1.endpoints.agents import pending_discovery_requests
+from app.services.agents import pending_discovery_requests
 
 logger = logging.getLogger(__name__)
 

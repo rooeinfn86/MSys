@@ -226,9 +226,9 @@ class DeviceStatusService:
             print(f"[AGENT] Found online agent {agent.id} for network {network_id}")
             
             # Add status test request to pending requests
-            # Import the global pending_discovery_requests from agents module
+            # Import the global pending_discovery_requests from agents service
             try:
-                from app.api.v1.endpoints.agents import pending_discovery_requests
+                from app.services.agents import pending_discovery_requests
                 
                 # Create a status test request
                 request_id = f"status_test_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{agent.id}"

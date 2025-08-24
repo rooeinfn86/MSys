@@ -2,10 +2,13 @@
 
 from .device import DeviceBase, DeviceCreate, DeviceUpdate, DeviceResponse, DeviceStatus, DeviceListResponse
 from .discovery import DiscoveryRequest, DiscoveryStatus, DiscoveryResponse, DiscoveryResult, DiscoverySummary
-from .status import DeviceStatus as StatusDeviceStatus, StatusRefreshRequest, StatusRefreshResponse, DeviceStatusSummary, StatusReport, AgentStatusRequest, AgentStatusResponse
+from .status import DeviceStatus as StatusDeviceStatus, StatusRefreshRequest, StatusRefreshResponse, DeviceStatusSummary, StatusReport
+# Updated imports for agent schemas
+from .agents.base import AgentStatusRequest, AgentStatusResponse
 
 __all__ = [
     "DeviceBase", "DeviceCreate", "DeviceUpdate", "DeviceResponse", "DeviceStatus", "DeviceListResponse",
     "DiscoveryRequest", "DiscoveryStatus", "DiscoveryResponse", "DiscoveryResult", "DiscoverySummary",
-    "StatusDeviceStatus", "StatusRefreshRequest", "StatusRefreshResponse", "DeviceStatusSummary", "StatusReport", "AgentStatusRequest", "AgentStatusResponse"
+    "StatusDeviceStatus", "StatusRefreshRequest", "StatusRefreshResponse", "DeviceStatusSummary", "StatusReport", 
+    "AgentStatusRequest", "AgentStatusResponse"
 ]
