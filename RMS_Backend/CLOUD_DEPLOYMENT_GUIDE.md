@@ -116,7 +116,7 @@ gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
 
 ```bash
 # Navigate to backend directory
-cd cisco_ai_backend
+cd RMS_Backend
 
 # Get database connection info
 DB_HOST=$(gcloud sql instances describe cisco-ai-database --format="value(connectionName)")

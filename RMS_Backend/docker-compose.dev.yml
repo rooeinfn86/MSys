@@ -27,7 +27,7 @@ services:
   # Backend with development settings
   backend:
     build: ..
-    container_name: cisco_ai_backend_dev
+    container_name: RMS_Backend_dev_dev
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
