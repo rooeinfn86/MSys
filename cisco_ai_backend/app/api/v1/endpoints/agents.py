@@ -411,6 +411,12 @@ async def agent_heartbeat(
         # Update heartbeat
         await agent_service.update_agent_heartbeat(agent.id, ip_address)
         
+        # Ensure agent status is online when heartbeats are received
+        if agent.status != "online":
+            agent.status = "online"
+            agent.updated_at = datetime.now(timezone.utc)
+            db.commit()
+        
         return {
             "message": "Heartbeat received",
             "agent_id": agent.id,
@@ -461,6 +467,11 @@ async def authenticate_agent(
         # Generate JWT token for agent
         from app.core.security import create_access_token
         from datetime import timedelta
+        
+        # Update agent status to online since it's now authenticated and running
+        agent.status = "online"
+        agent.updated_at = datetime.now(timezone.utc)
+        db.commit()
         
         # Create token with agent-specific claims
         token_data = {
