@@ -453,8 +453,10 @@ async def authenticate_agent(
         if agent.agent_token != agent_token:
             raise HTTPException(status_code=401, detail="Invalid agent token")
         
-        if agent.status != "active":
-            raise HTTPException(status_code=403, detail="Agent is not active")
+        # Allow both "offline" and "active" status for authentication
+        # "offline" is the initial state for newly created agents
+        if agent.status not in ["offline", "active"]:
+            raise HTTPException(status_code=403, detail="Agent is not in a valid state for authentication")
         
         # Generate JWT token for agent
         from app.core.security import create_access_token
