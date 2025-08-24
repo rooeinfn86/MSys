@@ -474,11 +474,16 @@ async def get_agents(
         agents = query.all()
         
         # Calculate real-time status for each agent
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         for agent in agents:
             # Consider agent offline if no heartbeat in last 1 minute (for testing)
             if agent.last_heartbeat:
-                time_diff = current_time - agent.last_heartbeat
+                # Ensure both datetime objects are timezone-aware for comparison
+                agent_time = agent.last_heartbeat
+                if agent_time.tzinfo is None:
+                    agent_time = agent_time.replace(tzinfo=timezone.utc)
+                
+                time_diff = current_time - agent_time
                 if time_diff.total_seconds() > 60:  # 1 minute (for testing)
                     agent.status = "offline"
                 else:
@@ -1971,9 +1976,14 @@ async def get_agent(
                 )
         
         # Calculate real-time status
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         if agent.last_heartbeat:
-            time_diff = current_time - agent.last_heartbeat
+            # Ensure both datetime objects are timezone-aware for comparison
+            agent_time = agent.last_heartbeat
+            if agent_time.tzinfo is None:
+                agent_time = agent_time.replace(tzinfo=timezone.utc)
+            
+            time_diff = current_time - agent_time
             if time_diff.total_seconds() > 300:  # 5 minutes
                 agent.status = "offline"
             else:
@@ -2153,11 +2163,16 @@ async def get_available_agents_for_network(
         ).all()
         
         # Calculate real-time status for each agent
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         agent_list = []
         for agent in agents:
             if agent.last_heartbeat:
-                time_diff = current_time - agent.last_heartbeat
+                # Ensure both datetime objects are timezone-aware for comparison
+                agent_time = agent.last_heartbeat
+                if agent_time.tzinfo is None:
+                    agent_time = agent_time.replace(tzinfo=timezone.utc)
+                
+                time_diff = current_time - agent_time
                 if time_diff.total_seconds() > 60:  # 1 minute timeout
                     agent.status = "offline"
                 else:
@@ -2215,12 +2230,17 @@ async def start_agent_discovery(
                 )
         
         # Check if agent is online
-        if agent.status != "online" or not agent.last_heartbeat or \
-           (datetime.utcnow() - agent.last_heartbeat).total_seconds() > 60:
-            raise HTTPException(
-                status_code=400,
-                detail="Agent is offline or not responding"
-            )
+        if agent.status != "online" or not agent.last_heartbeat:
+            # Ensure both datetime objects are timezone-aware for comparison
+            agent_time = agent.last_heartbeat
+            if agent_time and agent_time.tzinfo is None:
+                agent_time = agent_time.replace(tzinfo=timezone.utc)
+            
+            if not agent_time or (datetime.now(timezone.utc) - agent_time).total_seconds() > 60:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Agent is offline or not responding"
+                )
         
         # Validate network access for this agent
         print(f"🔍 DEBUG: Checking network access for agent {agent_id} to network {discovery_data.network_id}")
@@ -2252,12 +2272,17 @@ async def start_agent_discovery(
                 )
             
             # Check if agent is online
-            if selected_agent.status != "online" or not selected_agent.last_heartbeat or \
-               (datetime.utcnow() - selected_agent.last_heartbeat).total_seconds() > 60:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Agent {selected_agent.name} is offline or not responding"
-                )
+            if selected_agent.status != "online" or not selected_agent.last_heartbeat:
+                # Ensure both datetime objects are timezone-aware for comparison
+                selected_agent_time = selected_agent.last_heartbeat
+                if selected_agent_time and selected_agent_time.tzinfo is None:
+                    selected_agent_time = selected_agent_time.replace(tzinfo=timezone.utc)
+                
+                if not selected_agent_time or (datetime.now(timezone.utc) - selected_agent_time).total_seconds() > 60:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Agent {selected_agent.name} is offline or not responding"
+                    )
             
             # Validate network access
             agent_network_access = db.query(AgentNetworkAccess).filter(
@@ -2956,7 +2981,7 @@ async def get_agent_status(
             "last_heartbeat": agent.last_heartbeat,
             "capabilities": agent.capabilities,
             "version": agent.version,
-            "uptime": (datetime.utcnow() - agent.created_at).total_seconds() if agent.created_at else 0
+            "uptime": (datetime.now(timezone.utc) - agent.created_at.replace(tzinfo=timezone.utc) if agent.created_at and agent.created_at.tzinfo is None else agent.created_at).total_seconds() if agent.created_at else 0
         }
         
     except HTTPException:

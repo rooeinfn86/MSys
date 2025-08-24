@@ -104,7 +104,15 @@ class DeviceStatusService:
 
             # Check if device was recently checked by background monitoring (within last 2 minutes)
             if device.updated_at:
-                time_since_last_check = datetime.now(timezone.utc) - device.updated_at
+                # Ensure both datetime objects are timezone-aware for comparison
+                current_time = datetime.now(timezone.utc)
+                device_time = device.updated_at
+                
+                # If device.updated_at is timezone-naive, assume it's UTC
+                if device_time.tzinfo is None:
+                    device_time = device_time.replace(tzinfo=timezone.utc)
+                
+                time_since_last_check = current_time - device_time
                 if time_since_last_check.total_seconds() < 120:  # 2 minutes
                     print(f"[SMART REFRESH] Device {device_id} was checked {time_since_last_check.total_seconds():.0f}s ago, skipping redundant check")
                     # Return current status without requesting new check

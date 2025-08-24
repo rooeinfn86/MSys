@@ -946,7 +946,15 @@ def read_scan(
     # If scan is in processing state, check if it's been too long
     if scan.status == "processing":
         # If scan has been processing for more than 30 minutes, mark it as failed
-        if (datetime.now(timezone.utc) - scan.updated_at).total_seconds() > 1800:  # 30 minutes
+        # Ensure both datetime objects are timezone-aware for comparison
+        current_time = datetime.now(timezone.utc)
+        scan_time = scan.updated_at
+        
+        # If scan.updated_at is timezone-naive, assume it's UTC
+        if scan_time.tzinfo is None:
+            scan_time = scan_time.replace(tzinfo=timezone.utc)
+        
+        if (current_time - scan_time).total_seconds() > 1800:  # 30 minutes
             scan.status = "failed"
             db.commit()
             logger.warning(f"Scan {scan_id} marked as failed due to timeout")
